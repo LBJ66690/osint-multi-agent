@@ -1,0 +1,34 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+# Runtime data and personal research
+outputs/
+*.log
+# Local environments and bundled dependencies
+.venv/
+venv/
+env/
+vendor/
+node_modules/
+__pycache__/
+*.py[cod]
+# Editor, build and temporary files
+.vscode/
+.idea/
+.tmp/
+.pytest_cache/
+github-release/
+_dist/
+.DS_Store
+Thumbs.db
+/_*.json
+/_*.bin
+/_*.txt
+/_toc.py
+*.zip
+book.pdf

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OSINT · 情报指挥台</title><link rel="stylesheet" href="/static/style.css?v=20"><link rel="stylesheet" href="/static/visual-effects.css?v=20"></head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="情报指挥台首页"><span class="brand-mark">◈</span><span>情报指挥台<small>OSINT RESEARCH STUDIO</small></span></a>
+    <div class="top-status"><span class="health" id="health-pill"><i></i><span id="health-text">连接中</span></span><span class="total-clock">任务总历时 <b id="total-time">—</b></span><button class="icon-button" id="btn-motion" aria-pressed="false">减少动效</button></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="composer"><div class="section-kicker">NEW RESEARCH <span>新建研究</span></div><label class="sr-only" for="task-input">研究任务</label><textarea id="task-input" rows="4" placeholder="你想了解什么？描述主题、范围和需要的报告…"></textarea>
+        <div class="execution-settings"><label for="execution-mode">研究深度</label><select id="execution-mode"><option value="auto">自动匹配（推荐）</option><option value="quick">简明解答 · 最多 1 个问题</option><option value="standard">标准研究 · 最多 3 个问题</option><option value="deep">深入研究 · 最多 5 个问题</option></select><p id="mode-description">简单释义合并分析与推理；复杂任务保留完整研究流程。</p><label for="model-mode">模型编排</label><select id="model-mode"><option value="recommended">推荐配置（默认）</option><option value="custom">手动配置</option></select><p>快速规划 → 轻量研判 → 中文写作 → 独立核查</p></div>
+        <details class="advanced"><summary>查看岗位模型与理由 <span>6 个岗位</span></summary><div class="role-grid" id="role-grid">
+          <label>规划<select data-role="planner"></select></label><label>收集<select data-role="collector"></select></label><label>分析<select data-role="analyst"></select></label><label>推理<select data-role="reasoner"></select></label><label>报告<select data-role="reporter"></select></label><label>核查<select data-role="verifier"></select></label>
+        </div><button class="soft-button" id="btn-reset-models" type="button">恢复推荐配置</button><p class="model-help">免费 MCP 直接收集资料，无需调用收集模型。手动选择的大模型仍受阶段预算约束。</p><div id="model-sources" class="model-help"></div></details>
+        <div class="example-chips"><button class="chip" data-example="调研贵阳花溪区旅游口碑，形成舆情分析报告">花溪旅游口碑 ↗</button><button class="chip" data-example="调研当前 coding 大模型的能力与评测依据，形成对比报告">大模型能力对比 ↗</button></div>
+        <div class="action-buttons"><button class="btn-run" id="btn-run" disabled><span id="btn-run-text">载入推荐配置…</span><span>↗</span></button><button class="btn-cancel hidden" id="btn-cancel">终止</button></div><button class="btn-resume hidden" id="btn-resume">↻ 从中断处继续（保留原模型）</button><label id="resume-model-option" class="model-help hidden"><input type="checkbox" id="resume-change-models"> 本次恢复改用上方模型配置</label><p id="resume-help" class="model-help hidden">复用已保存产出，从失败步骤继续。本次工作预算重新计算，历史计时保留。</p>
+      </section>
+      <button id="btn-history" class="mobile-history-toggle" aria-expanded="false">展开研究记录 ↓</button>
+      <section class="history"><div class="history-head"><span>研究记录</span><button id="btn-refresh-history" class="icon-button" aria-label="刷新研究记录">↻</button></div><div id="history-list" class="history-list"><div class="empty">暂无研究记录</div></div></section>
+      <div class="sidebar-foot"><span class="online-dot"></span>多智能体协作 · 证据驱动研究</div>
+    </aside>
+    <main class="workspace">
+      <div class="workspace-heading"><div><div class="section-kicker">MISSION CONTROL</div><h1 id="task-title">每一次研究，都看得见进展。</h1><p id="task-subtitle">输入研究主题，规划、检索与报告在这里展开。</p></div><div class="workspace-actions"><button class="soft-button" id="btn-follow" aria-pressed="true">跟随执行</button><button class="soft-button" id="btn-focus" aria-pressed="false">专注大屏</button></div></div>
+      <div class="atlas-toolbar"><button class="soft-button topology-entry" id="btn-topology" aria-haspopup="dialog">⌘ 项目拓扑 <span>查看智能体协作与系统结构 ↗</span></button></div>
+      <div id="pending-action" class="pending-action hidden" role="status"><span id="pending-text"></span><button class="soft-button" id="btn-pending">处理待办</button></div>
+      <section id="report-ready" class="report-ready hidden" aria-labelledby="report-ready-title"><div class="report-ready-icon" aria-hidden="true">▧</div><div class="report-ready-copy"><span class="section-kicker">RESEARCH DELIVERED</span><h2 id="report-ready-title">研究完成，最终报告已就绪</h2><p id="report-ready-note"></p></div><div class="report-ready-actions"><button class="primary-button" id="btn-open-report">查看最终报告 ↗</button><button class="soft-button" id="btn-download-final">↓ 下载报告</button></div></section>
+      <div id="error-banner" class="error-banner hidden" role="alert"><div><strong id="error-banner-title">运行中断</strong><p id="error-banner-msg"></p><details><summary>诊断信息</summary><pre id="error-banner-trace"></pre></details></div><button class="soft-button" id="btn-copy-error">复制错误</button></div>
+      <div class="control-grid">
+        <div class="main-column">
+          <section class="hero" id="live-screen" aria-label="实时运行大屏">
+            <div class="hero-grid"></div><div class="hero-top"><span class="live-label"><i></i><span id="screen-state">准备就绪</span></span><span id="live-stage-label">等待新任务</span></div>
+            <div class="hero-body">
+              <div class="hero-copy"><div class="eyebrow" id="stage-number">RESEARCH ENGINE</div><h2 id="hero-title">研究引擎<br>准备就绪</h2><p id="hero-description">从一个问题出发，让来源、发现与结论逐步浮现。</p><div id="hero-model" class="model-label">按真实执行事件更新</div></div>
+              <div class="network" id="network" aria-label="智能体协作星图">
+                <svg class="network-lines" viewBox="0 0 360 230"><path data-beam="parallel" d="M180 115 Q80 125 60 40"/><path data-beam="you" d="M180 115 Q280 125 300 40"/><path data-beam="bailian" d="M180 115 L180 211"/></svg>
+                <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="core"><span id="core-symbol">◈</span><small id="core-label">OSINT</small></div>
+                <div class="source-node hidden" data-source="parallel"><i></i>Parallel</div><div class="source-node hidden" data-source="you"><i></i>You.com</div><div class="source-node hidden" data-source="bailian"><i></i>百炼</div>
+              </div>
+              <div class="hero-clock"><div class="clock-orbit" aria-hidden="true"><span></span></div><span id="clock-label">阶段累计执行</span><strong id="stage-time">—</strong><span id="wait-time" class="wait-time"></span><span class="clock-caption" id="clock-caption">运行后开始计时</span></div>
+            </div>
+            <div class="mission-strip"><span class="mission-chip"><i></i><span id="mission-state">等待研究任务</span></span><span id="mission-detail">由真实执行事件驱动</span><span class="mission-indicator" aria-hidden="true">▂ ▅ ▃ ▆ ▂</span></div>
+            <div class="hero-bottom"><span class="signal-bars"><i></i><i></i><i></i><i></i></span><span id="latest-activity">尚未开始研究</span><span id="event-age">—</span></div>
+          </section>
+          <div class="metric-row"><div><span>网页证据</span><strong id="metric-evidence">0</strong><small>条来源资料</small></div><div><span>子问题进展</span><strong id="metric-questions">—</strong><small>已完成 / 计划</small></div><div><span>请求返回</span><strong id="metric-requests">0</strong><small id="metric-request-note">尚无搜索请求</small></div><div><span>模型用量</span><strong id="metric-tokens">—</strong><small>已上报 Token</small></div></div>
+          <section class="channels-panel hidden" id="channels-panel"><div class="panel-heading"><h3>搜索通道</h3><span>实际请求与返回</span></div><div id="channels-grid" class="channels-grid"></div></section>
+          <section class="result-panel"><header class="panel-heading"><div><span class="section-kicker" id="view-kicker">STAGE OUTPUT</span><h2 id="view-title">研究工作区</h2></div><span class="view-badge" id="view-badge">等待开始</span></header><div id="stage-content" class="stage-content"><div class="welcome"><span class="welcome-orbit">◈</span><h3>让问题成为有据可查的答案</h3><p>左侧创建任务。研究开始后，在右侧选择阶段，查看计划、网页证据和报告。</p><div>规划 → 收集 → 分析 → 推理 → 报告</div></div></div><button id="btn-new-content" class="soft-button hidden">有新内容 · 查看最新</button></section>
+          <section class="activity-panel"><div class="panel-heading"><h3>实时活动</h3><details id="logs-panel"><summary>完整日志</summary><div id="full-logs" class="full-logs"></div></details></div><div id="activity-list"><div class="empty">等待第一条执行事件</div></div></section>
+        </div>
+        <aside class="stage-sidebar"><div class="stage-sidebar-head"><span class="section-kicker">WORKFLOW</span><h2>阶段导航</h2><p>点击查看 · 后台继续执行</p></div><nav id="stage-nav" aria-label="研究阶段"></nav><div class="nav-tip"><span>◌</span><p>核查贯穿各个阶段。查看其他内容时，可随时返回当前执行。</p></div></aside>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="modal-overlay hidden" id="confirm-modal"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><div class="modal-head"><div><span class="section-kicker">YOUR DECISION</span><h3 id="confirm-title">确认研究计划</h3><p>审阅计划，或提交修改意见重新规划。</p></div><button class="btn-close" data-close="confirm-modal" aria-label="收起计划确认">×</button></div><div class="modal-body" id="confirm-plan-body"></div><div class="modal-foot"><label for="confirm-feedback">修改意见（可选）</label><textarea id="confirm-feedback" rows="2" placeholder="例如：补充时间范围和来源要求"></textarea><div class="modal-actions"><button class="soft-button" id="btn-confirm-edit">提交修改意见</button><button class="primary-button" id="btn-confirm-ok">确认，选择搜索通道</button></div></div></div></div>
+<div class="modal-overlay hidden" id="sources-modal"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="sources-title"><div class="modal-head"><div><span class="section-kicker">WEB SEARCH MCP</span><h3 id="sources-title">选择网页搜索通道</h3><p>规划已确认。请选择实际用于第二步的 MCP。</p></div><button class="btn-close" id="btn-close-sources" aria-label="收起渠道选择">×</button></div><div class="modal-body"><p class="source-note">新增通道均已测试真实中文搜索。免费服务仍有配额与限流；后续云端模型另行计费。</p><div id="sources-options" class="sources-options"></div><p id="sources-error" class="source-error" role="alert"></p></div><div class="modal-foot"><button class="primary-button" id="btn-sources-start">使用所选通道，开始收集 ↗</button></div></div></div>
+<div class="modal-overlay hidden" id="gate-modal"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="gate-title"><div class="modal-head"><div><span class="section-kicker">QUALITY REVIEW</span><h3 id="gate-title">核查需要您的决定</h3><p id="gate-modal-sub"></p></div><button class="btn-close" data-close="gate-modal" aria-label="收起核查决策">×</button></div><div class="modal-body" id="gate-body"></div><div class="modal-foot"><label for="gate-feedback">补充意见</label><textarea id="gate-feedback" rows="2"></textarea><div class="modal-actions"><button class="soft-button" id="btn-gate-redo">打回重做</button><button class="primary-button" id="btn-gate-continue">接受问题，继续执行</button></div></div></div></div>
+<div class="toast hidden" id="toast" role="status"></div>
+<div class="modal-overlay hidden" id="topology-modal"><div class="modal topology-modal" role="dialog" aria-modal="true" aria-labelledby="topology-title"><div class="modal-head"><div><span class="section-kicker">SYSTEM ATLAS</span><h3 id="topology-title">项目拓扑</h3><p>查看岗位分工与系统结构，高亮对应当前真实阶段。</p></div><button class="btn-close" data-close="topology-modal" aria-label="关闭项目拓扑">×</button></div><div class="topology-tabs" role="tablist" aria-label="拓扑视图"><button id="tab-workflow" role="tab" aria-selected="true" aria-controls="topology-workflow" tabindex="0">执行编排</button><button id="tab-architecture" role="tab" aria-selected="false" aria-controls="topology-architecture" tabindex="-1">系统架构</button></div><div class="modal-body topology-body"><div id="topology-workflow" role="tabpanel" aria-labelledby="tab-workflow"></div><div id="topology-architecture" class="hidden" role="tabpanel" aria-labelledby="tab-architecture"></div></div></div></div>
+<script src="/static/visual-effects.js?v=20"></script>
+<script src="/static/app.js?v=20"></script>
+</body></html>
