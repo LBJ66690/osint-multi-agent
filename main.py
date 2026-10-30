@@ -23,6 +23,7 @@ async def main(argv=None) -> int:
     parser.add_argument('--resume',metavar='RUN_ID',help='从指定任务检查点恢复')
     parser.add_argument('--task',help='新任务内容；省略时交互输入')
     parser.add_argument('--mode',choices=['auto','quick','standard','deep'],default='auto')
+    parser.add_argument('--search-strategy',choices=['legacy','adaptive'],default='legacy')
     args=parser.parse_args(argv)
     config.check_key()
     hr("OSINT 开源情报多智能体分析平台 (CLI)")
@@ -116,6 +117,7 @@ async def main(argv=None) -> int:
             gate=cli_gate,
             resume=bool(args.resume),
             execution_mode=args.mode,
+            search_strategy=args.search_strategy,
         )
         hr("全部阶段圆满完成")
         print("报告路径:")

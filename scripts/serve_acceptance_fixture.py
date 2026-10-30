@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-import uvicorn,config,pipeline,search_sources,server
+import uvicorn,config,pipeline,search_sources,server,report_chat,json
 from schemas import ResearchPlan,SubQuestion,Knowledge,ViewPoint,Analysis,Finding,VerificationReport,VerificationIssue
 root=config.OUTPUT_DIR/'acceptance_web';root.mkdir(exist_ok=True)
 for handler in config.logger.handlers[:]:config.logger.removeHandler(handler);handler.close()
@@ -32,5 +32,11 @@ class Stream:
 class Reporter:
     def run(self,prompt,stream=False):return Stream()
 def build(_m,_i,name,**kwargs):return Reporter() if name=='报告官' else SimpleNamespace(name=name)
-with patch.object(pipeline,'build_agent',side_effect=build),patch.object(pipeline,'run_json',side_effect=model),patch.object(search_sources.MCPWebSearchClient,'search',new=search):
+async def chat_answer(model_id,prompt):
+    packet=json.loads(prompt)
+    assert '浏览器联调验收报告' in packet['report']
+    assert packet['question']
+    await asyncio.sleep(.1)
+    return f"固定测试回答（模型 {model_id}）：这份报告是浏览器联调验收的固定数据，不是实时研究。",{'prompt':40,'completion':20,'total':60}
+with patch.object(pipeline,'build_agent',side_effect=build),patch.object(pipeline,'run_json',side_effect=model),patch.object(search_sources.MCPWebSearchClient,'search',new=search),patch.object(config,'DASHSCOPE_API_KEY','fixture-chat-credential'),patch.object(report_chat,'generate_answer',side_effect=chat_answer):
     uvicorn.run(server.app,host='127.0.0.1',port=8890,log_level='warning')

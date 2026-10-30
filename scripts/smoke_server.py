@@ -17,7 +17,7 @@ async def main():
             await asyncio.sleep(.05)
         assert server.started,'server did not start'
         async with httpx.AsyncClient(base_url='http://127.0.0.1:8877',trust_env=False,timeout=5) as client:
-            for path in ['/','/static/app.js?v=20','/static/style.css?v=20','/static/visual-effects.js?v=20','/static/visual-effects.css?v=20','/api/search-sources','/api/models','/api/model-recommendation?execution_mode=deep','/api/health']:
+            for path in ['/','/static/app.js?v=22','/static/style.css?v=22','/static/visual-effects.js?v=22','/static/visual-effects.css?v=22','/static/report-chat.js?v=22','/static/report-chat.css?v=22','/api/search-sources','/api/models','/api/model-recommendation?execution_mode=deep','/api/health']:
                 response=await client.get(path);response.raise_for_status();print(path,response.status_code,flush=True)
             response=await client.get('/api/search-sources');assert [s['id'] for s in response.json()['sources']]==['parallel','you','bailian']
             response=await client.get('/api/models');assert response.json()['role_defaults']['planner']=='qwen3.8-flash'

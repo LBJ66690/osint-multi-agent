@@ -189,8 +189,8 @@ def _verification_appendix(report_type: str, v: VerificationReport) -> str:
 
 
 async def run_pipeline(task, model_id, emit, confirm, run_id="", role_models_override=None,
-                       resume=False, gate=None, select_sources=None, execution_mode="auto"):
+                       resume=False, gate=None, select_sources=None, execution_mode="auto", search_strategy="legacy"):
     import sys
     from pipeline_execution import execute
     return await execute(sys.modules[__name__], task, model_id, emit, confirm, run_id,
-                         role_models_override, resume, gate, select_sources, execution_mode)
+                         role_models_override, resume, gate, select_sources, execution_mode, search_strategy)

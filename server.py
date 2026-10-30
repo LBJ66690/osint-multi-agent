@@ -24,6 +24,7 @@ import config
 import models
 import pipeline
 import search_sources
+import report_chat
 from runtime_state import RunTimeline
 from execution_policy import choose_policy
 from checkpoint_resume import resume_info
@@ -55,6 +56,7 @@ class RunState:
         self.model_id = model_id
         self.role_models = role_models or models.role_defaults(choose_policy(task, execution_mode).mode)
         self.execution_mode = execution_mode
+        self.search_strategy = 'legacy'
         self.status = "pending"  # pending / running / awaiting_confirm / awaiting_gate / done / error / cancelled
         self.events: list[dict] = []
         self.timeline = RunTimeline()
@@ -104,6 +106,7 @@ class RunState:
             "updated_at": self.updated_at,
             "report_count": len(self.reports),
             "execution_mode": self.execution_mode,
+            "search_strategy": self.search_strategy,
         }
 
     def to_detail(self) -> dict:
@@ -192,6 +195,7 @@ def _restore_history_from_disk():
                     )
                     st.id = rid
                     st.search_sources = data.get("search_sources", [])
+                    st.search_strategy = data.get('search_strategy','legacy')
                     is_done = data.get("status") == "done" if data.get("schema_version") == 2 else "verifying" in data.get("completed_stages", [])
                     st.status = "done" if is_done else "error"
                     st.reports = [
@@ -207,6 +211,8 @@ def _restore_history_from_disk():
                         "verifications": data.get("verifications", {}),
                     }
                     st.events = _load_events(rid)
+                    st.summary.update({key:data.get(key,[]) if key in {'decision_history','conflicts'} else data.get(key,{})
+                                       for key in ['decision_history','conflicts','evidence_metrics','search_metrics']})
                     for ev in st.events:
                         if ev.get("ts"):
                             st.timeline.consume(ev)
@@ -325,6 +331,7 @@ async def _run_task(state: RunState, resume: bool = False):
             gate=gate,
             select_sources=choose_sources,
             execution_mode=state.execution_mode,
+            search_strategy=state.search_strategy,
         )
         state.summary = summary
         state.reports = [
@@ -428,6 +435,7 @@ class RunRequest(BaseModel):
     auto_confirm: bool = False
     role_models: Optional[dict] = None
     execution_mode: Literal["auto", "quick", "standard", "deep"] = "auto"
+    search_strategy: Literal['legacy','adaptive'] = 'legacy'
 
 
 def model_unavailable(model_id):
@@ -464,10 +472,20 @@ async def create_run(req: RunRequest):
     state = RunState(task, model_id, auto_confirm=req.auto_confirm,
                      role_models=validated_roles(req.role_models, choose_policy(task, req.execution_mode).mode), execution_mode=req.execution_mode)
     state.ensure_future()
+    state.search_strategy = req.search_strategy
     _add_run(state)
     state.task_obj = asyncio.create_task(_run_task(state))
     config.logger.info(f"[{state.id}] 创建新任务: {task[:40]}")
     return {"run_id": state.id, "model_id": model_id}
+
+
+@app.get('/api/comparison')
+async def get_comparison():
+    path=config.OUTPUT_DIR/'comparison/latest.json'
+    if not path.is_file():
+        raise HTTPException(404,'请先运行 python scripts/compare_search_strategies.py；不调用真实模型或搜索。')
+    try:return json.loads(await asyncio.to_thread(path.read_text,encoding='utf-8'))
+    except (OSError,ValueError):raise HTTPException(409,'对比报告不完整，请重新生成。')
 
 
 class ResumeRequest(BaseModel):
@@ -695,6 +713,38 @@ async def download_report_md(run_id: str):
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": disposition},
     )
+
+
+@app.get('/api/runs/{run_id}/report-chat')
+async def get_report_chat(run_id: str, report_type: str):
+    state = runs.get(run_id)
+    if state is None:
+        raise HTTPException(404, '运行不存在')
+    try:
+        text = await asyncio.to_thread(report_chat.report_text, state, report_type)
+        return await report_chat.history(run_id, report_type, text)
+    except report_chat.ChatError as exc:
+        raise HTTPException(exc.status, exc.message) from None
+    except OSError:
+        raise HTTPException(503, '本地报告暂时无法读取，请检查文件与目录权限。') from None
+
+
+@app.post('/api/runs/{run_id}/report-chat')
+async def ask_report_chat(run_id: str, req: report_chat.Question):
+    state = runs.get(run_id)
+    if state is None:
+        raise HTTPException(404, '运行不存在')
+    if not models.get_model(req.model_id):
+        raise HTTPException(400, '所选问答模型不在可用列表中。')
+    if model_unavailable(req.model_id):
+        raise HTTPException(400, '该模型当前额度不可用，请更换模型。')
+    try:
+        text = await asyncio.to_thread(report_chat.report_text, state, req.report_type)
+        return await report_chat.ask(run_id, req.report_type, text, req)
+    except report_chat.ChatError as exc:
+        raise HTTPException(exc.status, exc.message) from None
+    except OSError:
+        raise HTTPException(503, '本地报告暂时无法读取，请检查文件与目录权限。') from None
 
 
 @app.get("/api/reports/{run_id}/{filename}")
