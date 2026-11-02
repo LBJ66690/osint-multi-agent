@@ -43,7 +43,7 @@
       $(`[data-star-link="${stage}"]`).classList.toggle('lit',actual&&live);
     }
     $('#mission-state').textContent=!data.id?'等待研究任务':data.pending?'等待您的操作':data.status==='done'?'最终报告已交付':data.status==='error'?'执行中断 · 进度已保存':data.status==='cancelled'?'任务已终止':`${roles.find(r=>r[0]===data.current)?.[1]||'研究'}岗位运行中`;
-    $('#mission-detail').textContent=data.id?(data.stages[data.current]?.label||'等待下一条执行事件'):'轨道与光流将在真实执行时点亮';
+    $('#mission-detail').textContent=data.id?(data.stages[data.current]?.label||'等待下一条执行事件'):'星图待命旋转 · 执行时高亮当前岗位';
     if(visibleTopology())updateTopology();
   }
   function effect(event){

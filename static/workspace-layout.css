@@ -1,0 +1,85 @@
+/* Two views, one set of controls. Keep hidden task DOM mounted for SSE/history. */
+#welcome-screen[hidden],#dashboard-screen[hidden] { display:none!important; }
+#sidebar-send-slot { display:contents; }
+.new-research-button { width:100%; display:block; text-align:left; color:#c4f4e6; background:#13343f; border:1px solid #3b7580; padding:11px 13px; border-radius:9px; margin-bottom:19px; font-size:13px; }
+.new-research-button:hover { background:#1c4852; border-color:#7cc9bc; }
+.new-research-button:disabled { color:#a3b5c9; background:#122137; border-color:#30495f; }
+.welcome-view .workspace { padding:20px 28px; }
+.welcome-view .action-buttons { display:none; }
+.welcome-screen { min-height:calc(100dvh - 118px); display:grid; place-items:center; padding:22px 12px 34px; }
+.welcome-content { width:min(760px,100%); min-width:0; text-align:center; }
+.welcome-copy { margin:6px 0 26px; }
+.welcome-copy .section-kicker { color:#89c9cd; letter-spacing:2px; font-size:9px; }
+.welcome-copy h1 { color:#e5f6fb; font-size:clamp(24px,2.3vw,34px); font-weight:600; letter-spacing:-.5px; margin:12px 0; line-height:1.5; }
+.welcome-copy p { color:#a5bed2; font-size:13px; line-height:1.9; }
+.welcome-compose { text-align:left; padding:18px 20px 15px; background:linear-gradient(120deg,#12273bd9,#0d1b2ef2); border:1px solid #40647c; border-radius:19px; box-shadow:0 18px 60px #0003,inset 0 1px #a9e6ef0b; }
+.welcome-compose:focus-within { border-color:#7ac8c1; box-shadow:0 0 0 3px #6ac4bf0c,0 18px 60px #0003; }
+.welcome-compose>label { display:block; font-size:11px; color:#a8c7d8; margin-bottom:9px; }
+#welcome-input-slot #task-input { width:100%; display:block; height:100px; min-height:90px; max-height:260px; resize:vertical; margin:0; padding:3px 0 8px; border:0; border-radius:4px; box-shadow:none; background:transparent; font-size:16px; line-height:1.85; color:#e3f1fc; }
+#welcome-input-slot #task-input::placeholder { color:#90abc2; }
+.welcome-compose-footer { display:flex; align-items:center; justify-content:space-between; gap:15px; padding-top:12px; border-top:1px solid #2a425a; }
+.welcome-settings { display:flex; gap:7px; align-items:center; flex-wrap:wrap; min-width:0; }
+.welcome-settings>span { font-size:10px; color:#b2dbdf; padding:5px 8px; border-radius:6px; background:#153144; border:1px solid #35596c; }
+.welcome-settings small { font-size:10px; color:#9bb3c9; padding:3px; }
+.welcome-settings-link { display:none; border:0; background:transparent; color:#b1e5df; padding:4px 2px; font-size:10px; }
+#welcome-send-slot { flex-shrink:0; }
+#welcome-send-slot .btn-run { gap:22px; min-width:139px; padding:12px 16px; font-size:13px; }
+.welcome-suggestions { margin-top:20px; display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap; }
+.welcome-suggestions>span { font-size:11px; color:#91aec4; }
+.welcome-suggestions .example-chips { display:flex; justify-content:center; gap:9px; margin:0; }
+.welcome-suggestions .chip { background:#0e2033; border-color:#2e4c64; padding:9px 12px; border-radius:9px; font-size:11px; color:#bdd5e5; }
+.welcome-flow { display:flex; align-items:center; gap:13px; justify-content:center; margin:26px 0 20px; font-size:10px; color:#91b0c7; }
+.welcome-flow i { font-style:normal; color:#4f7c90; }
+.welcome-links { display:flex; justify-content:center; align-items:center; gap:12px; }
+.welcome-links .soft-button { color:#a9c4d8; border-color:transparent; background:transparent; font-size:11px; padding:6px 9px; }
+.welcome-links .soft-button:hover { background:#122e40; border-color:#365c72; }
+.welcome-links .topology-entry span { display:none; }
+.welcome-pet-host { display:flex; justify-content:center; }
+.welcome-pet-host .research-pet { width:340px; max-width:100%; border:0; background:none; box-shadow:none; overflow:visible; }
+.welcome-pet-host .fish-header,.welcome-pet-host .fish-state,.welcome-pet-host .fish-hint,.welcome-pet-host .fish-controls,.welcome-pet-host .fish-go,.welcome-pet-host .fish-note { display:none; }
+.welcome-pet-host .fish-details { padding:0; display:flex; flex-direction:column; align-items:center; gap:0; }
+.welcome-pet-host .fish-scene { order:0; width:215px; max-width:100%; margin:0; background:radial-gradient(ellipse at 60% 60%,#63dccd0a,transparent 70%); }
+.welcome-pet-host .fish-art { width:100%; height:auto; max-height:155px; }
+.welcome-pet-host .fish-bubble { order:1; min-height:0; max-width:340px; width:auto; padding:8px 14px; margin:0 0 9px; font-size:11px; line-height:1.8; color:#b9d9df; background:#102d3b; border-color:#315b6d; border-radius:20px; }
+.welcome-pet-host .fish-bubble:after { display:none; }
+.welcome-pet-host .fish-hearts { top:26%; }
+
+/* A single compact mission card replaces the separated title + topology rows. */
+.dashboard-view .workspace { padding-top:20px; }
+.workspace-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:13px 20px; padding:18px 20px 14px; margin:0 0 14px; border:1px solid #304c64; border-radius:14px; background:linear-gradient(110deg,#11273b,#0c192a); }
+.mission-heading-copy { min-width:0; }
+.mission-heading-label { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.mission-heading-label .section-kicker { font-size:9px; letter-spacing:1.2px; }
+.mission-status { font-size:10px; padding:3px 7px; border:1px solid #3d687b; background:#143343; color:#c3ebe5; border-radius:5px; }
+.mission-status[data-status=waiting] { color:#f3d8ad; border-color:#7f683f; background:#332c21; }
+.mission-status[data-status=error] { color:#f9c5ba; border-color:#7d5054; background:#34232c; }
+.mission-status[data-status=done] { color:#b4efd4; border-color:#41735e; background:#18372e; }
+.workspace-heading h1 { font-size:21px; line-height:1.5; margin:8px 0 3px; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.workspace-heading p { font-size:11px; line-height:1.7; margin:0; color:#a4bcd1; }
+.workspace-heading .workspace-actions { flex-direction:row; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:7px; }
+.workspace-heading .workspace-actions .soft-button { font-size:11px; padding:8px 10px; white-space:nowrap; }
+.workspace-heading .topology-entry { display:inline-flex; gap:0; }.workspace-heading .topology-entry span { display:none; }
+.mission-overview { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:13px; border-top:1px solid #284157; padding-top:11px; flex-wrap:wrap; }
+.mission-facts { display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-width:0; }
+.mission-facts>span { color:#b3cddd; background:#112a3c; border:1px solid #2f4f66; border-radius:5px; font-size:10px; padding:4px 7px; line-height:1.5; }
+.mission-route { display:flex; align-items:center; gap:4px; min-width:0; }
+.mission-route button { display:flex; gap:5px; align-items:center; padding:5px 7px; border:1px solid transparent; background:#102237; color:#a9c0d4; border-radius:5px; font-size:10px; }
+.mission-route button>span { color:#83acbd; font:9px Consolas,monospace; }
+.mission-route button:hover,.mission-route .is-viewed { border-color:#456f84; background:#18374a; }
+.mission-route .is-done { color:#ace6ce; }.mission-route .is-done>span { color:#9cd9c5; }
+.mission-route .is-active { color:#d1fff0; border-color:#66ac9c; background:#18413f; box-shadow:0 0 12px #62ddbb0c; }
+#dashboard-screen>.tactical-hud-bar { margin:0 0 16px; }
+.tactical-hud-bar>summary { padding:12px 16px; }.hud-copy small { margin-top:1px; }
+@media(max-width:1220px) { .workspace-heading { gap:12px; }.workspace-heading .workspace-actions { max-width:250px; }.mission-overview { align-items:flex-start; } }
+@media(max-width:950px) { .workspace-heading { padding:15px; }.workspace-heading h1 { font-size:19px; }.mission-route { width:100%; justify-content:space-between; }.mission-overview { gap:9px; } }
+@media(max-width:680px) {
+  .welcome-view .workspace { order:0; }.welcome-view .sidebar { order:1; }.welcome-settings-link { display:inline-block; }
+  .welcome-view .workspace { padding:12px; }.welcome-screen { min-height:auto; padding:8px 0 24px; }.welcome-copy { margin:5px 0 19px; }.welcome-copy h1 { font-size:24px; }.welcome-copy .section-kicker { font-size:7px; letter-spacing:1px; }.welcome-copy p { font-size:11px; padding:0 10px; }
+  .welcome-pet-host .fish-scene { width:180px; }.welcome-pet-host .fish-art { max-height:130px; }.welcome-pet-host .fish-bubble { max-width:290px; font-size:10px; }
+  .welcome-compose { padding:15px; border-radius:15px; }#welcome-input-slot #task-input { font-size:14px; min-height:88px; height:100px; }
+  .welcome-compose-footer { flex-wrap:wrap; gap:12px; }.welcome-settings { flex:1; }.welcome-settings small { flex-basis:100%; font-size:9px; }#welcome-send-slot .btn-run { min-width:116px; gap:12px; font-size:12px; padding:11px 12px; }
+  .welcome-suggestions { margin-top:16px; gap:8px; }.welcome-suggestions .chip { font-size:10px; padding:8px; }.welcome-flow { margin:22px 0 17px; font-size:9px; gap:8px; }
+  .dashboard-view .workspace { padding-top:14px; }.workspace-heading { grid-template-columns:minmax(0,1fr); padding:13px; gap:10px; }.workspace-heading h1 { font-size:18px; }.workspace-heading .workspace-actions { max-width:none; width:100%; justify-content:flex-start; }.workspace-heading .workspace-actions .soft-button { font-size:10px; padding:7px 8px; }.mission-heading-label { gap:7px; }.mission-heading-label .section-kicker { font-size:8px; }.mission-status { font-size:9px; }
+  .mission-facts>span { font-size:9px; padding:3px 5px; }.mission-route { gap:2px; flex-wrap:wrap; }.mission-route button { padding:6px 4px; gap:3px; font-size:9px; }.mission-route button>span { font-size:8px; }
+}
+@media(max-width:380px) { .welcome-copy h1 { font-size:22px; }.welcome-settings>span { font-size:9px; padding:4px; }.welcome-settings small { display:none; }.welcome-compose-footer { gap:8px; }#welcome-send-slot .btn-run { min-width:100px; padding:10px; } }

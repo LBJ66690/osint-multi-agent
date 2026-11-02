@@ -27,7 +27,7 @@ python scripts/compare_search_strategies.py
 
 报告生成在 `outputs/comparison/latest.md` 和 `latest.json`。页面“Legacy / Adaptive 离线对比”可查看最近一次结果；页面读取报告不会启动两遍真实任务，也不会在服务进程内运行测试替身。7 个场景覆盖正常、重复、资料不足、渠道故障、金额冲突、预算不足和报告引用局部修复。
 
-CLI：`python main.py --search-strategy adaptive --mode standard --task "研究问题"`。要回到原检索逻辑，新建任务时选择 legacy；不要通过手工改检查点转换一个在途任务。修改前业务源码快照与测试结果保存在本机 `outputs/comparison/baseline_source/` 和 `baseline_tests.json`，源码可通过 GitHub 分发；对比结果与备份目录仅在本机生成，不随源码上传。
+CLI：`python main.py --search-strategy adaptive --mode standard --task "研究问题"`。要回到原检索逻辑，新建任务时选择 legacy；不要通过手工改检查点转换一个在途任务。修改前业务源码快照与测试结果保存在本机 `outputs/comparison/baseline_source/` 和 `baseline_tests.json`，本轮没有修改或推送 GitHub 仓库。
 
 新增大陆来源：本轮未加入。Searchpin 未在本机部署且依赖 embedding 初始化，未完成实际 MCP 验证；其他候选也未获得可验证的配置。保留现有三来源，不把市场介绍当作测试通过。详情见本地 `outputs/comparison/provider_validation.json`。
 
@@ -107,7 +107,7 @@ CLI：`python main.py --search-strategy adaptive --mode standard --task "研究�
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  前端 static/（深色"指挥大屏"，原生 HTML/CSS/JS）          │
+│  前端 static/（暖白研究工作台，原生 HTML/CSS/JS）          │
 │  流水线进度 · 工具调用流 · 计划/证据/发现/报告 · 人工确认弹窗 │
 └───────────────▲──────────────────────┬──────────────────┘
                 │ SSE 实时事件          │ POST 建任务 / 确认
@@ -265,24 +265,16 @@ node scripts/test_search_ui.cjs
 
 浏览器实际后端联调：先运行 `python scripts/serve_acceptance_fixture.py`，再运行 `node scripts/test_real_web.cjs`。端口为 8890；仅模型和搜索返回固定数据，其余 API、SSE、检查点、报告及浏览器操作均为真实代码。验收后关闭该临时服务。
 
+### 大肥鱼研究搭子
 
-## 公开源码包与离线验证
+欢迎页中央显示大肥鱼、欢迎语和研究输入框，提交成功或打开历史记录后进入研究看板；看板中的宠物位于右侧阶段导航下方。可点击、键盘 Enter/空格或按住横向轻滑抚摸。它根据实际执行事件用气泡播报阶段、搜索返回、人工待办、中断与完成，并配合相应动作；手动查看其他阶段不会改变它播报的执行进度。宠物不会请求模型、搜索、修改报告或操作检查点。
 
-仓库不提供 API Key、个人 `.env`、历史任务、证据、报告、聊天记录或日志。每位使用者应使用自己的账户，启动时隐藏输入 Key。完整安装步骤见 [部署与使用指南](部署与使用指南.md)。
+看板内可单独关闭进度播报、收起宠物；小屏看板默认收起，欢迎页始终显示大肥鱼。语音默认关闭，每次打开页面都需手动开启，只使用浏览器检测到的本地中文语音。缺少语音包时保留气泡，不调用付费语音服务。页面“减少动效”和操作系统减少动态效果设置均生效。
 
-```powershell
-python -B scripts/run_acceptance.py
-```
+新任务可在欢迎页点击“开始研究”，或用 Ctrl/Cmd + Enter 发送；空问题和创建失败会留在欢迎页。创建请求期间防重复发送。任务结束或中断后点击左侧“新建研究”回到欢迎页，已保存的任务仍在历史记录中；任务执行或等待人工确认时禁用此按钮。手机端先显示输入，研究设置在其下方并提供快捷入口。看板顶栏整合任务标题、真实状态、任务配置与六阶段导航，项目拓扑仍需手动打开。
 
-干净仓库没有历史真实 MCP 探测产物，相应的一个回放用例会明确跳过；其他测试使用临时目录和模拟数据。开发环境完整结果为114项通过；干净源码验收结果以接收者运行记录为准。测试通过不代表外部账户额度和网络已经验证。
+`node scripts/test_research_pet_ui.cjs` 使用固定 HTTP/SSE 数据验证宠物交互、播报、隔离、语音降级及桌面/手机布局，不消耗模型或搜索额度。详细说明见 [大肥鱼虚拟宠物验收.md](大肥鱼虚拟宠物验收.md)。
 
-可选浏览器验证需安装 Node.js、Playwright 和浏览器。先生成不含凭据的界面配置与离线对比，再执行：
+### 暖白界面主题
 
-```powershell
-python -B scripts/export_ui_fixtures.py
-python -B scripts/compare_search_strategies.py
-node scripts/test_search_ui.cjs
-node scripts/test_report_chat_ui.cjs
-```
-
-所有生成内容均位于被 Git 忽略的 `outputs/`。真实前后端固定数据联调可运行 `scripts/serve_acceptance_fixture.py` 与 `scripts/test_real_web.cjs`，完成后关闭临时服务。详细功能说明见 [报告问答功能验收](报告问答功能验收.md) 和 [自适应检索本地优化验收](自适应检索本地优化验收.md)。
+当前界面采用暖白底色、纸张色卡片、深棕灰文字与少量陶土色点缀；欢迎页、看板、报告、拓扑和问答弹窗统一配色。星点、网格和霓虹光晕已移除，保留圆环旋转、阶段反馈及宠物交互。配色集中在最后加载的 `static/warm-theme.css`，不涉及后端任务逻辑。按 Ctrl + F5 刷新可载入。验收见 [暖白主题UI验收.md](暖白主题UI验收.md)。
