@@ -1,34 +1,18 @@
-# Credentials and local configuration
+# 敏感配置（含 API Key，切勿提交）
 .env
-.env.*
-!.env.example
-*.pem
-*.key
-*.p12
-*.pfx
-# Runtime data and personal research
-outputs/
-*.log
-# Local environments and bundled dependencies
-.venv/
-venv/
-env/
-vendor/
-node_modules/
+
+# Python
 __pycache__/
 *.py[cod]
-# Editor, build and temporary files
-.vscode/
-.idea/
-.tmp/
-.pytest_cache/
-github-release/
-_dist/
-.DS_Store
-Thumbs.db
-/_*.json
-/_*.bin
-/_*.txt
-/_toc.py
-*.zip
-book.pdf
+*.pyo
+.venv/
+venv/
+
+# 运行产物与日志
+outputs/
+*.log
+
+# 临时/调试脚本
+_err.json
+_wtest.bin
+_wtest.txt

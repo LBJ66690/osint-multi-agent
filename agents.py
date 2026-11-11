@@ -207,12 +207,16 @@ def make_local_tools(emitter: Optional[Emitter] = None) -> list:
     ]
 
 
-# ---------- 百炼聊天客户端（OpenAI 兼容） ----------
+# ---------- 模型客户端（OpenAI 兼容） ----------
 def make_chat_client(model_id: str | None = None, request_timeout: float = 85) -> OpenAIChatClient:
     return OpenAIChatClient(
         model=config.resolve_model(model_id),
-        async_client=AsyncOpenAI(api_key=config.DASHSCOPE_API_KEY, base_url=config.BASE_URL,
-                                 timeout=request_timeout, max_retries=0),
+        async_client=AsyncOpenAI(
+            api_key=config.chat_api_key(),
+            base_url=config.BASE_URL,
+            timeout=request_timeout,
+            max_retries=0,
+        ),
     )
 
 
@@ -330,11 +334,16 @@ REPORTER_INSTR = """你是开源情报分析的【报告官】，你可以使用
 报告必须引用具体例子和来源，区分事实与判断。
 直接输出报告正文（Markdown），不要输出 JSON。"""
 
-VERIFIER_INSTR = """你是开源情报流水线的【核查官】，担任每个阶段产出的质量关卡与独立第三方质检。
+VERIFIER_INSTR = """你是开源情报流水线的【核查官】，对照本次提供的资料检查产出质量。
 职责：按用户消息中给出的核查标准，把该阶段产出逐条对照参照材料核查，输出关卡判定：
 - pass：产出达标，可放行进入下一阶段（issues 为空列表，summary 给出结论）；
 - fail：存在必须修正的问题，需打回重做（issues 列明问题，fail 时 issues 不能为空；按提示要求填写 redo_targets）。
-核查时区分：陈述是否有证据支撑、是否把推测写成事实、是否偏离研究目标。
+核查时区分结构校验、引用匹配与片段的语义支持：URL存在、域名权重或转载数量不代表支持陈述或来源独立。
+逐条对照关键陈述的主体、时间、数值、口径及限定条件；用 evidence_ids 指明对照的片段。
+若引用存在但正文并不支持陈述、关键数字不符、反证被忽略，必须在 issues 提示，不能为了放行判 pass。
+资料不足时，明确写成无法确认的结论可以通过；不得强求确定答案。模型推断必须标明推断。
+证据存在冲突时保留冲突和未解决问题，不依据多数转载裁决。不要把内部材料对照称为独立事实认证。
+只基于本次资料，不凭记忆补写事实；scope 固定为 provided_evidence。pass仅表示本次对照未发现待修订问题。
 只输出 JSON，不要解释。"""
 
 
@@ -399,29 +408,29 @@ def text_of(resp) -> str:
 
 
 def _extract_usage(resp) -> dict:
-    """从 MAF 运行结果里抠出 token 用量；拿不到就返回 0。"""
-    ud = getattr(resp, "usage_details", None)
-    if isinstance(ud, dict):
-        pt = ud.get("input_token_count") or ud.get("prompt_tokens") or 0
-        ct = ud.get("output_token_count") or ud.get("completion_tokens") or 0
-        tt = ud.get("total_token_count") or (pt + ct) or 0
-        return {"prompt": int(pt or 0), "completion": int(ct or 0), "total": int(tt or 0)}
-    for attr in ("usage", "_usage"):
+    """仅返回供应商实际用量；未知字段为 None，只有输入/输出均已知才推导总量。"""
+    aliases = {'prompt': ('input_token_count', 'prompt_tokens', 'input_tokens'),
+               'completion': ('output_token_count', 'completion_tokens', 'output_tokens'),
+               'total': ('total_token_count', 'total_tokens')}
+    result = dict.fromkeys(aliases)
+    for attr in ('usage_details', 'usage', '_usage'):
         u = getattr(resp, attr, None)
-        if not u:
+        if u is None:
             continue
-        try:
-            d = u if isinstance(u, dict) else {
-                k: getattr(u, k, None) for k in
-                ("prompt_tokens", "completion_tokens", "total_tokens", "input_tokens", "output_tokens")
-            }
-            pt = d.get("prompt_tokens") or d.get("input_tokens") or 0
-            ct = d.get("completion_tokens") or d.get("output_tokens") or 0
-            tt = d.get("total_tokens") or (pt + ct) or 0
-            return {"prompt": int(pt or 0), "completion": int(ct or 0), "total": int(tt or 0)}
-        except Exception:
-            pass
-    return {"prompt": 0, "completion": 0, "total": 0}
+        for target, keys in aliases.items():
+            if result[target] is not None:
+                continue
+            for key in keys:
+                value = u.get(key) if isinstance(u, dict) else getattr(u, key, None)
+                if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+                    try:
+                        result[target] = int(value)
+                    except (ValueError, OverflowError):
+                        continue
+                    break
+    if result['total'] is None and result['prompt'] is not None and result['completion'] is not None:
+        result['total'] = result['prompt'] + result['completion']
+    return result
 
 
 def _agent_model_id(agent) -> str:
@@ -514,7 +523,12 @@ async def run_json(agent, user_prompt: str, schema: type[BaseModel], *, emit=Non
     usage = {"prompt": 0, "completion": 0, "total": 0}
     for attempt in range(2):
         attempt_started = asyncio.get_running_loop().time()
+        request = {'request_id': uuid.uuid4().hex, 'stage': stage, 'operation': operation,
+                   'role': {'规划官': 'planner', '收集官': 'collector', '分析官': 'analyst', '推理官': 'reasoner',
+                            '报告官': 'reporter', '核查官': 'verifier'}.get(agent_name, ''),
+                   'agent': agent_name, 'model': agent_model, 'attempt': attempt + 1}
         if emit:
+            await emit({'type': 'model_request', **request})
             await emit({"type":"model_attempt", "stage":stage,"operation":operation,"attempt":attempt+1,"status":"running"})
         prompt = base
         if attempt == 1:
@@ -530,9 +544,14 @@ async def run_json(agent, user_prompt: str, schema: type[BaseModel], *, emit=Non
                            + excerpt + '\n【错误回复结束】\n现在返回修正后的完整业务对象。')
         try:
             resp = await agent.run(prompt, options=options)
+        except asyncio.CancelledError:
+            if emit:
+                await emit({'type': 'model_error', **request, 'cancelled': True, 'error_type': 'CancelledError'})
+            raise
         except Exception as exc:
             from report_generation import transient
             if emit:
+                await emit({'type': 'model_error', **request, 'cancelled': False, 'error_type': type(exc).__name__})
                 await emit({"type":"model_attempt","stage":stage,"operation":operation,"attempt":attempt+1,"status":"error",
                             "elapsed_seconds":round(asyncio.get_running_loop().time()-attempt_started,2),"error_type":type(exc).__name__})
             if attempt == 0 and transient(exc):
@@ -541,11 +560,13 @@ async def run_json(agent, user_prompt: str, schema: type[BaseModel], *, emit=Non
             raise
         raw = text_of(resp)
         last_raw = raw
+        current_usage = _extract_usage(resp)
         if emit:
+            await emit({'type': 'model_response', **request, 'usage': current_usage})
             await emit({"type":"model_attempt","stage":stage,"operation":operation,"attempt":attempt+1,"status":"returned",
                         "elapsed_seconds":round(asyncio.get_running_loop().time()-attempt_started,2)})
-        for key, value in _extract_usage(resp).items():
-            usage[key] += value
+        for key, value in current_usage.items():
+            usage[key] = usage[key] + value if usage[key] is not None and value is not None else None
         clean = _extract_json(raw)
         try:
             _reject_schema_echo(clean)
@@ -553,6 +574,8 @@ async def run_json(agent, user_prompt: str, schema: type[BaseModel], *, emit=Non
             return val, raw, usage
         except Exception as e:
             last_err = e
+            if emit:
+                await emit({'type': 'model_parse_error', **request, 'error_type': type(e).__name__})
             preview = (raw or "").strip().replace("\n", " ")[:120]
             config.logger.warning(
                 f"智能体 [{agent_name}] 第 {attempt + 1} 次输出 JSON 校验失败: {e}；"

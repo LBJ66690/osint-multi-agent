@@ -25,7 +25,7 @@ class SourceError(RuntimeError):
     pass
 
 def validate_sources(ids: list[str]) -> list[str]:
-    allowed = {s["id"] for s in SOURCES}
+    allowed = {s["id"] for s in source_options()}
     if not isinstance(ids, list) or not ids:
         raise ValueError("请至少选择一个搜索 MCP")
     if any(not isinstance(s, str) or s not in allowed for s in ids):

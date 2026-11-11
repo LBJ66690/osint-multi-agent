@@ -16,7 +16,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal
 from urllib.parse import quote
 
@@ -25,6 +25,9 @@ import models
 import pipeline
 import search_sources
 import report_chat
+import sag_evidence
+import sag_report_import
+from resource_usage import snapshot as resource_snapshot
 from runtime_state import RunTimeline
 from execution_policy import choose_policy
 from checkpoint_resume import resume_info
@@ -55,6 +58,7 @@ class RunState:
         self.task = task
         self.model_id = model_id
         self.role_models = role_models or models.role_defaults(choose_policy(task, execution_mode).mode)
+        self.role_overrides = role_models
         self.execution_mode = execution_mode
         self.search_strategy = 'legacy'
         self.status = "pending"  # pending / running / awaiting_confirm / awaiting_gate / done / error / cancelled
@@ -185,6 +189,8 @@ def _restore_history_from_disk():
         for f in ckpts[:MAX_RUNS]:
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
+                if data.get("model_provider", "bailian") != config.model_provider():
+                    continue
                 rid = data.get("run_id")
                 if rid and rid not in runs:
                     st = RunState(
@@ -203,6 +209,8 @@ def _restore_history_from_disk():
                         for rt, p in _iter_reports(data)
                     ]
                     st.summary = {
+                        "model_provider": data.get("model_provider", "bailian"),
+                        "routing": data.get("routing"),
                         "reports": data.get("reports", []),
                         "plan": data.get("plan"),
                         "evidence": data.get("evidence", []),
@@ -213,6 +221,8 @@ def _restore_history_from_disk():
                     st.events = _load_events(rid)
                     st.summary.update({key:data.get(key,[]) if key in {'decision_history','conflicts'} else data.get(key,{})
                                        for key in ['decision_history','conflicts','evidence_metrics','search_metrics']})
+                    st.summary['resource_usage'] = resource_snapshot(data['resource_usage']) if data.get('resource_usage') else None
+                    st.summary['unresolved_gaps'] = data.get('unresolved_gaps',[])
                     for ev in st.events:
                         if ev.get("ts"):
                             st.timeline.consume(ev)
@@ -239,6 +249,14 @@ async def _emit_for(state: RunState):
         if ev.get('type') == 'report' and ev.get('path'):
             record={'type':ev.get('report_type','报告'),'path':ev['path'],'markdown':ev.get('markdown','')}
             state.reports=[r for r in state.reports if r['type']!=record['type']]+[record]
+        if ev.get('type') == 'resource_usage':
+            state.summary['resource_usage'] = ev.get('stats')
+        if ev.get('type') == 'execution_policy':
+            state.execution_mode = ev['mode']
+            state.role_models = ev['role_models']
+        if ev.get('type') == 'evidence_quality':
+            state.summary['evidence_metrics'] = ev.get('metrics',{})
+            state.summary['conflicts'] = ev.get('conflicts',state.summary.get('conflicts',[]))
         # 先准备交互状态再广播，避免极速点击或刷新出现 409。
         if ev.get("type") == "confirm_required":
             state.status = "awaiting_confirm"
@@ -255,7 +273,7 @@ async def _emit_for(state: RunState):
             state.events.append(ev)
             state.cond.notify_all()
         state.updated_at = ev["ts"]
-        if ev.get("type") in {"sources_selected", "sources_required", "confirm_required", "gate_check", "report_start", "report_interrupted", "operation_done", "operation_start", "execution_policy", "resumed"} or (ev.get("type") == "stage" and ev.get("status") == "done"):
+        if ev.get("type") in {"sources_selected", "sources_required", "confirm_required", "gate_check", "report_start", "report_interrupted", "operation_done", "operation_start", "operation_error", "model_response", "model_error", "resource_usage", "execution_policy", "resumed"} or (ev.get("type") == "stage" and ev.get("status") == "done"):
             await _persist_events(state)
 
     return emit
@@ -326,7 +344,7 @@ async def _run_task(state: RunState, resume: bool = False):
             emit,
             confirm,
             run_id=state.id,
-            role_models_override=state.role_models,
+            role_models_override=state.role_overrides,
             resume=resume,
             gate=gate,
             select_sources=choose_sources,
@@ -349,7 +367,7 @@ async def _run_task(state: RunState, resume: bool = False):
             state.cond.notify_all()
     except Exception as e:  # noqa: BLE001
         state.status = "error"
-        state.summary = {**state.summary, "error": f"{type(e).__name__}: {e}"}
+        state.summary = {**state.summary, "error": config.redact_secret(f"{type(e).__name__}: {e}")}
         if not state.events or state.events[-1].get('type') != 'error':
             await emit({'type':'error','message':str(e),'can_resume':True})
         async with state.cond:
@@ -394,8 +412,9 @@ async def list_search_sources():
 async def health():
     return {
         "ok": True,
-        "has_key": bool(config.DASHSCOPE_API_KEY),
+        "has_key": bool(config.chat_api_key()),
         "default_model": config.resolve_model(),
+        "model_provider": config.model_provider(),
     }
 
 
@@ -404,10 +423,11 @@ async def list_models():
     default = config.resolve_model()
     return {
         "default": default,
-        "role_defaults": models.ROLE_DEFAULTS,
-        "role_reasons": models.ROLE_REASONS,
-        "role_profiles": models.ROLE_PROFILES,
-        "profile_reasons": models.PROFILE_REASONS,
+        "sag_enabled": sag_evidence.settings(config) is not None,
+        "role_defaults": models.role_defaults("quick"),
+        "role_reasons": models.role_reasons("quick"),
+        "role_profiles": {mode: models.role_defaults(mode) for mode in models.ROLE_PROFILES},
+        "profile_reasons": {mode: models.role_reasons(mode) for mode in models.ROLE_PROFILES},
         "sources": models.MODEL_SOURCES,
         "models": [
             {
@@ -426,7 +446,8 @@ async def list_models():
 async def model_recommendation(task: str = "", execution_mode: Literal["auto", "quick", "standard", "deep"] = "auto"):
     policy = choose_policy(task, execution_mode)
     return {"mode": policy.mode, "label": policy.label, "role_models": models.role_defaults(policy.mode),
-            "reasons": models.PROFILE_REASONS[policy.mode]}
+            "reasons": models.role_reasons(policy.mode),
+            "semantic_on_start": execution_mode == "auto"}
 
 
 class RunRequest(BaseModel):
@@ -471,6 +492,7 @@ async def create_run(req: RunRequest):
         raise HTTPException(status_code=400, detail=f"未知模型：{model_id}")
     state = RunState(task, model_id, auto_confirm=req.auto_confirm,
                      role_models=validated_roles(req.role_models, choose_policy(task, req.execution_mode).mode), execution_mode=req.execution_mode)
+    state.role_overrides = req.role_models
     state.ensure_future()
     state.search_strategy = req.search_strategy
     _add_run(state)
@@ -504,6 +526,8 @@ async def resume_run(run_id: str, req: ResumeRequest | None = None):
     checkpoint = pipeline.load_checkpoint(run_id)
     if not checkpoint:
         raise HTTPException(status_code=409, detail="检查点不存在或损坏，请新建任务；不会自动从头重跑")
+    if checkpoint.get("model_provider", "bailian") != config.model_provider():
+        raise HTTPException(status_code=409, detail="请在创建该任务的模型服务模式下恢复检查点。")
     try:
         info=resume_info(checkpoint,run_id)
     except (ValueError,TypeError,KeyError) as exc:
@@ -513,6 +537,9 @@ async def resume_run(run_id: str, req: ResumeRequest | None = None):
     if req and (req.use_recommended or req.role_models):
         mode = choose_policy(state.task, checkpoint.get("execution_mode", state.execution_mode)).mode
         state.role_models = validated_roles(None if req.use_recommended else req.role_models, mode)
+        state.role_overrides = state.role_models
+    else:
+        state.role_overrides = None
     state.pending_gate = None
     state.pending_sources = None
     for future in (state.confirm_future, state.gate_future, state.sources_future):
@@ -539,6 +566,74 @@ async def get_run(run_id: str):
     if not state:
         raise HTTPException(status_code=404, detail="运行不存在")
     return state.to_detail()
+
+
+@app.get("/api/runs/{run_id}/sag-evidence/{evidence_id}")
+async def get_sag_evidence(run_id: str, evidence_id: str):
+    if run_id in runs:
+        checkpoint = await asyncio.to_thread(pipeline.load_checkpoint, run_id)
+        suffix = f"/api/runs/{run_id}/sag-evidence/{evidence_id}"
+        for item in (checkpoint or {}).get("evidence", []):
+            if item.get("provider") == "sag" and item.get("source", "").endswith(suffix):
+                body = f"{item['title']}\n\n{item['content']}"
+                return Response(body, media_type="text/plain", headers={"Cache-Control": "no-store"})
+    raise HTTPException(404, "本地证据不存在")
+
+
+class SagImportRequest(BaseModel):
+    report_type: str = Field(min_length=1, max_length=200)
+    report_version: str = Field(pattern=r"^[0-9a-f]{64}$")
+    section_ids: list[int] = Field(min_length=1, max_length=100)
+
+
+async def _sag_report(run_id, report_type):
+    if run_id not in runs:
+        raise HTTPException(404, "报告不存在")
+    settings = sag_evidence.settings(config)
+    if not settings:
+        raise HTTPException(409, "请设置 OSINT_SAG_SCOPE 指向已索引的资料目录，再重启项目。")
+    index, scope = settings
+    try:
+        text = await asyncio.to_thread(report_chat.report_text, runs[run_id], report_type)
+        target = await asyncio.to_thread(sag_report_import.destination, index, scope)
+    except report_chat.ChatError as exc:
+        raise HTTPException(exc.status, exc.message) from None
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
+    except OSError:
+        raise HTTPException(503, "暂时无法读取报告或访问 SAG 目录。") from None
+    version, _ = report_chat.identity(run_id, report_type, text)
+    return index, target, version, sag_report_import.sections(text)
+
+
+@app.get("/api/runs/{run_id}/sag-import")
+async def preview_sag_import(run_id: str, report_type: str):
+    _, _, version, sections = await _sag_report(run_id, report_type)
+    return {"report_version": version, "sections": sections}
+
+
+@app.post("/api/runs/{run_id}/sag-import")
+async def import_to_sag(run_id: str, req: SagImportRequest):
+    index, target, version, sections = await _sag_report(run_id, req.report_type)
+    if version != req.report_version:
+        raise HTTPException(409, "报告已更新，请重新打开后选择片段。")
+    ids = set(req.section_ids)
+    selected = [section for section in sections if section["id"] in ids]
+    if len(selected) != len(ids):
+        raise HTTPException(422, "包含无效的报告片段。")
+    try:
+        path, fingerprint = await asyncio.to_thread(
+            sag_report_import.save, target, run_id, req.report_type, version, selected)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    except OSError:
+        raise HTTPException(503, "无法保存片段，请检查 SAG 资料目录的写入权限。") from None
+    for attempt in range(9):
+        if await asyncio.to_thread(sag_report_import.is_indexed, index, path, fingerprint):
+            return {"status": "indexed", "file": path.name, "count": len(selected)}
+        if attempt < 8:
+            await asyncio.sleep(.5)
+    return {"status": "pending", "file": path.name, "count": len(selected)}
 
 
 class ConfirmRequest(BaseModel):

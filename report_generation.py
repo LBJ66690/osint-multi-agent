@@ -16,7 +16,7 @@ def transient(exc):
     text = " ".join(parts).lower()
     return any(t in text for t in ["connection", "timeout", "protocolerror", "chunked", "ratelimit", "429", "502", "503", "504"])
 
-async def generate_report(reporter, prompt, report_type, emit, save_draft, usage_of, attempts=1, timeout=120, backoff=1, total_timeout=150):
+async def generate_report(reporter, prompt, report_type, emit, save_draft, usage_of, attempts=1, timeout=120, backoff=1, total_timeout=150, operation=''):
     deadline = time.monotonic() + total_timeout
     async def notify(kind, **data):
         await emit({"type": kind, "stage": "reporting", "report_type": report_type, **data})
@@ -25,6 +25,11 @@ async def generate_report(reporter, prompt, report_type, emit, save_draft, usage
         version = uuid.uuid4().hex[:10]
         buf, stream = [], None
         await notify("report_start", version=version, attempt=attempt + 1, mode=mode)
+        options = getattr(reporter, 'default_options', None) or {}
+        request = {'request_id': uuid.uuid4().hex, 'role': 'reporter', 'agent': '报告官',
+                   'model': options.get('model') or getattr(getattr(reporter, 'client', None), 'model', '') or '',
+                   'operation': operation or 'report:' + report_type, 'attempt': attempt + 1}
+        requested = False
         async def run():
             nonlocal stream
             if mode == "nonstream":
@@ -41,15 +46,23 @@ async def generate_report(reporter, prompt, report_type, emit, save_draft, usage
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError("报告生成已达到共享时间预算")
+            await notify('model_request', **request)
+            requested = True
             response = await asyncio.wait_for(run(), min(timeout, remaining))
+            usage = usage_of(response)
+            await notify('model_response', **request, usage=usage)
             text = getattr(response, "text", "") or "".join(buf)
             if not text.strip(): raise RuntimeError("报告模型返回空正文")
-            await emit({"type": "usage", "stage": "reporting", **usage_of(response)})
+            await emit({"type": "usage", "stage": "reporting", **usage})
             return text
         except asyncio.CancelledError:
+            if requested:
+                await notify('model_error', **request, cancelled=True, error_type='CancelledError')
             if buf: await save_draft("".join(buf))
             raise
         except Exception as exc:
+            if requested:
+                await notify('model_error', **request, cancelled=False, error_type=type(exc).__name__)
             if buf: await save_draft("".join(buf))
             can_retry = transient(exc) and attempt < attempts and deadline-time.monotonic() > backoff*(attempt+1)+2
             await notify("report_interrupted", version=version, attempt=attempt + 1, retrying=can_retry,

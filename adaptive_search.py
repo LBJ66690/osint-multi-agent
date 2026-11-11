@@ -1,4 +1,4 @@
-"""反馈层：只在 collecting 内调整检索；状态与决定均可恢复，不调用额外 LLM。"""
+"""收集内反馈：状态和决定可恢复；跨阶段的有限免费补搜见 research_feedback。"""
 import time
 import asyncio
 from execution_runtime import signature
@@ -74,7 +74,7 @@ async def collect(plan,selected,search,checkpoint,save,emit,budget,policy):
                 if not any(j['query']==text for j in state['jobs']):
                     state['conflict']+=1;state['extra']+=1;counts['supplemental_searches']+=1
                     state['jobs'].insert(state['jobs'].index(job)+1,{'provider':job['provider'],'query':text,'kind':'conflict'})
-                    await decision(q,'VERIFY_CONFLICT','发现同一问题的投资金额差异，定向查找官方口径；暂不裁决',{'conflicts':len(found)})
+                    await decision(q,'VERIFY_CONFLICT','发现同一问题的资料存在不同说法，定向查找原始口径；暂不裁决',{'conflicts':len(found)})
                     await save();continue
             if state['low']>=2 or (coverage=='sufficient' and gain['level']=='low'):
                 counts['early_stops']+=1
@@ -88,7 +88,7 @@ async def collect(plan,selected,search,checkpoint,save,emit,budget,policy):
                     state['extra']+=1;state['refine']+=int(repeat)
                     counts['supplemental_searches']+=1;counts['refined_queries']+=int(repeat)
                     state['jobs'].append({'provider':job['provider'],'query':text,'kind':action})
-                    await decision(q,action,'独立来源不足；优先用规则查找原始/官方资料',{'coverage':coverage,'information_gain':gain})
+                    await decision(q,action,'检索覆盖较弱；查找原始资料，来源独立性仍待确认',{'coverage':coverage,'information_gain':gain})
             await save()
         state['done']=bool(rows)  # 完全失败保持可重试；不把缺资料伪装成完成。
         await save()
@@ -104,23 +104,18 @@ async def collect(plan,selected,search,checkpoint,save,emit,budget,policy):
 def limitations(checkpoint):
     metrics=checkpoint.get('evidence_metrics',{})
     gaps=[q for q,v in metrics.get('coverage',{}).items() if v['status']!='sufficient']
-    conflict=checkpoint.get('conflicts',[])
-    return ('\n\n## 检索范围与不确定性\n'
-            +'\n'.join('- 证据不足或来源单一：'+q for q in gaps)
-            + ('\n- 公开资料的投资金额存在不同说法，目前无法根据现有证据确认；可能涉及不同口径。' if conflict else '')
-            + '\n- 来源多样性和域名规则仅用于检索排序，不代表事实正确率。')
+    lines=['\n\n## 检索范围与不确定性']
+    lines.extend('- 证据不足或来源单一：'+q for q in gaps)
+    for conflict in checkpoint.get('conflicts',[]):
+        lines.append('- 待核对的资料差异：'+str(conflict.get('topic','关键事实'))+'；'+str(conflict.get('reason','无法确认是否同口径，暂不裁决。')))
+    for gap in checkpoint.get('unresolved_gaps',[]):
+        lines.append('- 尚未确认：'+gap.get('subquestion','')+'；'+gap.get('reason','证据不足'))
+    if metrics.get('independent_source_count') is None:
+        lines.append('- 来源独立性未知：不同网址或域名不代表不同原始资料，转载不能当作多重独立证明。')
+    lines.append('- 来源多样性和域名规则仅用于检索排序，不代表事实正确率；核查只对照已提供片段。')
+    return '\n'.join(lines)
+
 
 def finding_details(analysis,context,checkpoint):
-    import json
-    from evidence_context import canonical_url
-    ids={canonical_url(e['source']):e['id'] for e in json.loads(context)}
-    conflicted={canonical_url(u) for c in checkpoint.get('conflicts',[]) for urls in c['values'].values() for u in urls}
-    results=[]
-    for finding in analysis.findings:
-        row=finding.model_dump();urls={canonical_url(u) for u in finding.sources}
-        unsure=bool(urls&conflicted)
-        row.update(support_ids=[ids[u] for u in ids if u in urls],counter_ids=[],
-                   confidence='low' if unsure else 'medium',uncertain=unsure,
-                   uncertainty_reason='涉及公开资料的金额差异，尚不能确定口径' if unsure else '来源匹配不代表独立事实认证')
-        results.append(row)
-    return results
+    from evidence_verification import finding_details as describe
+    return describe(analysis,context,checkpoint)

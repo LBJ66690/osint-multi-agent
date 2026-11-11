@@ -279,3 +279,12 @@ textarea::placeholder { color:#7b6e62; opacity:1; }
   .metric-row>div:nth-child(2) { border-color:#ded2c2; }
 }
 @keyframes count-pop { 40% { color:#985137; transform:translateY(-2px); } }
+
+/* 材料边界与真实用量：沿用纸白卡片，不新增装饰面板。 */
+.resource-panel{margin:12px 0 16px;padding:14px 18px;background:var(--surface,#fffdf9);border:1px solid #ded5c9;border-radius:12px;color:#494036;font-size:13px}
+.resource-panel summary{cursor:pointer;font-weight:600}.resource-panel summary span{font-weight:400;margin-left:10px;color:#64594e}
+.resource-panel p,.verification-scope,.finding-state{font-size:12px;line-height:1.7;color:#665b50}
+.resource-table-wrap{overflow-x:auto}.resource-panel table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:12px}
+.resource-panel th,.resource-panel td{padding:8px;border-bottom:1px solid #e8e0d5}
+.evidence-notice{border:1px solid #d8c6aa;background:#fbf4e8;border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;line-height:1.7;color:#594b39;overflow-wrap:anywhere}
+.verification-scope{margin:6px 0 12px}.finding-state{padding:6px 0}

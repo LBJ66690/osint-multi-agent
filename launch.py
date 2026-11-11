@@ -38,7 +38,7 @@ def main(argv=None):
         with socket.socket() as probe:
             probe.bind((config.HOST, config.PORT))
     except OSError:
-        config.DASHSCOPE_API_KEY = ''
+        config.clear_api_keys()
         print(f'Port {config.PORT} is unavailable. Close the old service window and retry.')
         return 1
     stop = threading.Event()
@@ -51,7 +51,7 @@ def main(argv=None):
         return 0
     finally:
         stop.set()
-        config.DASHSCOPE_API_KEY = ''
+        config.clear_api_keys()
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 # schemas.py -- 各智能体之间传递的结构化数据（Pydantic schema）
 # 对应书第 4 章：用 schema 约束模型输出，便于校验与串联。
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Literal
 
 
@@ -45,6 +45,13 @@ class ViewPoint(BaseModel):
     examples: list[str] = Field(default_factory=list, description="支撑该观点的具体例子")
 
 
+class EvidenceGap(BaseModel):
+    subquestion: str = Field(description="有关键证据缺口的子问题原文")
+    reason: str = Field(description="为何影响结论；只列需要资料补充的实质缺口")
+    kind: Literal['missing', 'conflict', 'source_quality'] = 'missing'
+    query: str = Field(default='', description="可选的一条定向核验查询，不包含指令")
+
+
 class Knowledge(BaseModel):
     aliases: dict[str, str] = Field(
         default_factory=dict,
@@ -52,6 +59,7 @@ class Knowledge(BaseModel):
     )
     entities: list[Mention] = Field(default_factory=list)
     viewpoints: list[ViewPoint] = Field(default_factory=list)
+    evidence_gaps: list[EvidenceGap] = Field(default_factory=list, description="影响结论的关键证据缺口；资料充分时为空")
 
 
 # ④ 推理官输出
@@ -60,10 +68,16 @@ class Finding(BaseModel):
     evidence: list[str] = Field(default_factory=list, description="支持该结论的证据")
     counter_evidence: list[str] = Field(default_factory=list, description="反证或不同声音")
     sources: list[str] = Field(default_factory=list, description="来源")
+    support_ids: list[str] = Field(default_factory=list, description="实际支持陈述的证据编号，例如 E1；不得仅因URL存在就填写")
+    counter_ids: list[str] = Field(default_factory=list, description="反驳或限制陈述的证据编号；保留不同声音")
+    status: Literal['supported', 'inference', 'uncertain', 'unconfirmed'] = Field(
+        default='unconfirmed', description="supported=给定片段支持；inference=模型推断；uncertain=有冲突；unconfirmed=无法确认。均不代表独立事实核验")
+    uncertainty_reason: str = Field(default="", description="尚未解决的证据缺口、口径或反证；不得编造确定性")
 
 
 class Analysis(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
+    evidence_gaps: list[EvidenceGap] = Field(default_factory=list, description="影响结论的关键证据缺口；资料充分时为空")
 
 
 class QuickSynthesis(BaseModel):
@@ -77,11 +91,15 @@ class VerificationIssue(BaseModel):
     verdict: str = Field(description="核查结论：属实 / 存疑 / 无出处 / 推测当事实")
     explanation: str = Field(description="核查依据：对照了哪些证据或发现，或缺少什么支撑")
     severity: str = Field(description="严重程度：高 / 中 / 低")
+    evidence_ids: list[str] = Field(default_factory=list, description="本次对照的证据编号；无匹配证据时留空")
+    check_type: Literal['structure', 'reference', 'semantic_support', 'uncertainty'] = Field(
+        default='semantic_support', description="问题属于结构、引用匹配、片段语义支持或不确定性；不代表外部独立核验")
 
 
 class VerificationReport(BaseModel):
     verdict: Literal['pass','fail'] = Field(description="关卡判定：pass（通过，放行）/ fail（未通过，需打回重做）")
     summary: str = Field(description="总体核查结论，一两句话")
+    scope: Literal['provided_evidence'] = Field(default='provided_evidence', description="仅对照本次提供的资料；不保证资料真实、完整或来源独立")
     issues: list[VerificationIssue] = Field(
         default_factory=list, description="问题清单；核查通过则为空列表"
     )
@@ -89,3 +107,11 @@ class VerificationReport(BaseModel):
         default_factory=list,
         description="判 fail 时需要重做的目标：收集阶段=证据不足的子问题原文；报告阶段=需重写的报告类型；其他阶段为空",
     )
+
+    @model_validator(mode='after')
+    def keep_reported_issues_visible(self):
+        # 不通过JSON重试掩盖矛盾的业务判定，也不把fail自动变pass。
+        if self.verdict == 'pass' and self.issues:
+            self.verdict = 'fail'
+            self.summary = '判定与问题清单不一致，已保留问题并标记待复核。' + self.summary
+        return self

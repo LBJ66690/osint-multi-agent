@@ -8,6 +8,7 @@
     ['reporting','最终报告','▧','FINAL REPORT','阅读研究结论、依据与来源'],['verifying','核查记录','✓','QUALITY REVIEW','对照资料与发现，检查输出质量']
   ];
   let modelDefaults={}, modelReasons={}, modelProfiles={}, profileReasons={}, modelsLoaded=false, modelsLoadFailed=false, startPending=false, recommendationRequest=0, recommendationTimer;
+  let sagEnabled=false, sagDraft=null;
   const idleWorkspace=$('#stage-content').innerHTML,idleActivity=$('#activity-list').innerHTML;
   let serviceState={ok:null,text:'正在检查本地服务'};
   const LABELS = {pending:'尚未开始',running:'执行中',ready:'已产出',done:'已完成',error:'执行失败',cancelled:'已终止',waiting:'等待决策',awaiting_confirm:'等待确认计划',awaiting_sources:'等待选择 MCP',awaiting_gate:'等待核查决策'};
@@ -15,9 +16,10 @@
   const FINAL = new Set(['done','error','cancelled']);
   let S, es = null, renderTimer, viewRequest = 0, clockOffset = 0, openTrigger;
   const fresh = () => ({id:null,task:'',status:'pending',view:'planning',follow:true,timeline:null, stages:Object.fromEntries(ROLES.map(r=>[r[0],{status:'pending',label:'',model:''}])),
-    strategy:'legacy',decisions:[],plan:null,evidence:[],knowledge:null,findings:[],reports:{},reportTab:null,verifications:{},gates:{},calls:{},activities:[],logs:[],usage:{},sources:[],completedQuestions:new Set(),pending:null,scroll:{},dirty:false,lastTs:null,error:null});
+    strategy:'legacy',decisions:[],plan:null,evidence:[],knowledge:null,findings:[],reports:{},reportTab:null,verifications:{},gates:{},calls:{},activities:[],logs:[],usage:{},resources:null,quality:null,conflicts:[],sources:[],completedQuestions:new Set(),pending:null,scroll:{},dirty:false,lastTs:null,error:null});
   S = fresh();
   function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function checkPassed(v){return v?.verdict==='pass'&&!(v.issues||[]).length;}
   function safeURL(s){try{const u=new URL(s);return ['http:','https:'].includes(u.protocol)?u.href:'';}catch{return '';}}
   function duration(ms){if(ms==null)return '—';const n=Math.max(0,Math.floor(ms/1000));return n>=3600?`${String(Math.floor(n/3600)).padStart(2,'0')}:${String(Math.floor(n/60)%60).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`:`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;}
   function tok(n){return n>=1000?(n/1000).toFixed(1)+'k':String(n||0);}
@@ -55,8 +57,8 @@
   function selectStage(stage,follow){S.scroll[S.view]=$('#stage-content').scrollTop;S.view=stage;S.follow=follow;S.dirty=false;renderScreen();renderContent(true);$('#stage-content').scrollTop=S.scroll[stage]||0;}
   function renderAdaptive(){
     $('#adaptive-decisions').classList.toggle('hidden',S.strategy!=='adaptive');
-    const actions={ADD_SEARCH:'继续补搜',REFINE_QUERY:'调整搜索词',STOP_SEARCH:'停止搜索',SWITCH_SOURCE:'切换已选渠道',VERIFY_CONFLICT:'定向查证',RETRY_QUERY:'重试未成功查询'};
-    const levels={insufficient:'不足',weak:'较弱',sufficient:'来源数量与多样性已够'};
+    const actions={ADD_SEARCH:'继续补搜',REFINE_QUERY:'调整搜索词',STOP_SEARCH:'停止搜索',SWITCH_SOURCE:'切换已选渠道',VERIFY_CONFLICT:'定向查证',RETRY_QUERY:'重试未成功查询',COLLECT_FEEDBACK:'分析反馈补搜',FEEDBACK_RESULT:'补搜资料返回',FEEDBACK_FAILED:'补搜未成功'};
+    const levels={insufficient:'不足',weak:'较弱',sufficient:'检索覆盖较充分 · 独立性仍待确认'};
     $('#adaptive-decision-list').innerHTML=S.decisions.slice(-20).reverse().map(e=>{const state=e.metrics?.coverage;return `<article class="decision-card"><b>${esc(actions[e.action]||e.action)}</b><time>${esc(e.ts?new Date(e.ts).toLocaleTimeString():'')}</time><p>子问题：${esc(e.subquestion)}</p>${typeof state==='string'?`<p>证据状态：${esc(levels[state]||state)}</p>`:''}<p>${esc(e.reason)}</p></article>`;}).join('')||'<p>开始检索后显示每个自动动作和原因。</p>';
   }
   function renderScreen(){
@@ -66,7 +68,7 @@
     const readingReport=delivered&&S.view==='reporting';
     document.body.classList.toggle('report-reading',readingReport);
     $('#report-ready').classList.toggle('hidden',!delivered);
-    const warningCount=Object.values(S.verifications).filter(v=>v.verdict==='fail').length;
+    const warningCount=Object.values(S.verifications).filter(v=>!checkPassed(v)).length;
     $('#report-ready').classList.toggle('has-warnings',delivered&&warningCount>0);
     $('#report-ready-title').textContent=warningCount?'报告已生成，核查问题需要审阅':'研究完成，最终报告已就绪';
     $('#report-ready-note').textContent=delivered?`${Object.keys(S.reports).length} 份报告 · ${Object.keys(S.reports).join(' / ')}${warningCount?` · ${warningCount} 份含已接受的核查问题，请查看附录`:' · 点击阅读结论与引用来源'}`:'';
@@ -91,25 +93,45 @@
     document.dispatchEvent(new CustomEvent('osint:view',{detail:{id:S.id,task:S.task,status:S.status,current:current(),view:S.view,pending:!!S.pending,stages:S.stages,mode:S.policy?.mode,strategy:S.strategy,sources:S.sources,roles:S.policy?.role_models||{},reports:Object.keys(S.reports).length}}));
   }
   function changeMetric(id,value){const el=$(id);if(el.textContent!==String(value)){el.textContent=value;el.classList.remove('updated');void el.offsetWidth;el.classList.add('updated');}}
-  function renderMetrics(){const calls=Object.values(S.calls),done=calls.filter(c=>c.status!=='busy').length,failed=calls.filter(c=>c.status==='error').length;changeMetric('#metric-evidence',S.evidence.length);changeMetric('#metric-questions',S.plan?`${S.completedQuestions.size} / ${S.plan.subquestions?.length||0}`:'—');changeMetric('#metric-requests',done);$('#metric-request-note').textContent=`${calls.filter(c=>c.status==='busy').length} 个等待 · ${failed} 个失败`;const n=Object.values(S.usage).reduce((a,b)=>a+(b.total||0),0);changeMetric('#metric-tokens',n?tok(n):'—');}
+  function renderMetrics(){
+    const calls=Object.values(S.calls),done=calls.filter(c=>c.status!=='busy').length,failed=calls.filter(c=>c.status==='error').length;
+    changeMetric('#metric-evidence',S.evidence.length);changeMetric('#metric-questions',S.plan?`${S.completedQuestions.size} / ${S.plan.subquestions?.length||0}`:'—');changeMetric('#metric-requests',done);
+    $('#metric-request-note').textContent=`${calls.filter(c=>c.status==='busy').length} 个等待 · ${failed} 个失败`;
+    const records=Object.values(S.usage), unknown=records.some(u=>u.unknown), n=records.reduce((a,b)=>a+(b.total||0),0), r=S.resources;
+    changeMetric('#metric-tokens',r?(r.total==null?((r.model_calls||r.history_incomplete)?'未知':'—'):tok(r.total)):(unknown?'未知':records.length?tok(n):'—'));
+    $('#metric-token-note').textContent=r?.history_incomplete?'旧任务此前用量未记录 · 总量未知':r?.unknown_usage_calls?`${r.unknown_usage_calls} 次未返回完整用量 · 已知 ${tok(r.known_total||0)}`:'供应商上报 · 缺失显示未知';
+    renderResources();
+  }
+  function renderResources(){
+    const r=S.resources, names={planner:'规划官',collector:'收集官',analyst:'分析官',reasoner:'推理官',reporter:'报告官',verifier:'核查官',unknown:'未标注岗位'};
+    $('#resource-brief').textContent=r?`${r.model_calls} 次已记录模型请求 · ${r.search_calls} 次搜索 · ${r.supplemental_searches} 次补搜${r.history_incomplete?' · 历史统计不完整':''}`:'尚无逐请求统计记录';
+    const count=n=>n==null?'未知':String(n);
+    $('#resource-details').innerHTML=r?`<div class="resource-table-wrap"><table><thead><tr><th>岗位</th><th>请求</th><th>输入 Token</th><th>输出 Token</th><th>请求内重试</th><th>失败 / 格式错误</th></tr></thead><tbody>${Object.entries(r.roles||{}).map(([role,v])=>`<tr><th>${esc(names[role]||role)}</th><td>${count(v.model_calls)}</td><td>${count(v.prompt)}</td><td>${count(v.completion)}</td><td>${count(v.model_retries)}</td><td>${count(v.model_failures)} / ${count(v.parse_failures)}</td></tr>`).join('')}</tbody></table></div><p>搜索失败 ${count(r.search_failures)} 次；搜索重试 ${count(r.search_retries)} 次；恢复复用 ${count(r.restored_operations)} 项；操作重试 ${count(r.operation_retries)} 次（含手动恢复）。各阶段耗时见右侧阶段导航。</p>${(r.stop_reasons||[]).map(x=>`<p>停止原因：${esc(x)}</p>`).join('')}`:'旧任务或尚未发起请求：没有可靠数据，不能据此认定零消耗。';
+  }
+  function evidenceNotice(){
+    const q=S.quality;if(!q)return '';
+    const origins=q.provenance||[], shared=origins.filter(p=>p.independence_status==='shared_origin');
+    return `<div class="evidence-notice"><strong>检索资料 ≠ 已证实事实</strong><p>${esc(q.raw_count)} 条资料 · ${esc(q.nonduplicate_count)} 条非重复内容；来源独立性未确认。${shared.length?`${shared.length} 条资料存在明显转载、同页或重复关系，不能当作独立佐证。`:''}</p>${S.conflicts.map(c=>`<p>待核对差异：${esc(c.topic||'关键事实')} · ${esc(c.reason)}</p>`).join('')}${shared.length?`<details><summary>查看重复或同源原因</summary>${shared.slice(0,12).map(p=>`<p>${esc(p.source)}：${esc(p.reason)}</p>`).join('')}</details>`:''}</div>`;
+  }
+
   function renderChannels(){const ids=S.sources.filter(p=>PROVIDERS[p]);$('#channels-panel').classList.toggle('hidden',!ids.length);$('#channels-grid').innerHTML=ids.map(id=>{const calls=Object.values(S.calls).filter(c=>c.tool===id),busy=calls.some(c=>c.status==='busy'),fails=calls.filter(c=>c.status==='error').length,success=calls.filter(c=>c.status==='success'),unknown=success.some(c=>!Number.isInteger(c.result_count)),count=success.reduce((a,c)=>a+(Number.isInteger(c.result_count)?c.result_count:0),0),status=busy?'busy':fails?'error':calls.length?'success':'';const text=busy?'请求 / 等待响应中':!calls.length?'等待请求':count?`返回${unknown?'至少 ': ' '}${count} 条 · ${fails} 次失败`:unknown?`已返回内容 · 条数未统计${fails?` · ${fails} 次失败`:''}`:success.length?`已返回 · 未找到网页${fails?` · ${fails} 次失败`:''}`:fails?'接口请求失败':'请求已中断';const node=$(`[data-source="${id}"]`),beam=$(`[data-beam="${id}"]`);node.className='source-node '+status;beam.classList.add('selected');beam.classList.toggle('busy',busy);return `<div class="channel ${status}"><strong>${PROVIDERS[id]}</strong><span>${text}</span></div>`;}).join('');for(const id of Object.keys(PROVIDERS)){if(!ids.includes(id)){$(`[data-source="${id}"]`).className='source-node hidden';$(`[data-beam="${id}"]`).setAttribute('class','');}}}
   function addActivity(ev,text,error=false){S.lastTs=Date.parse(ev.ts)||Date.now();S.activities.unshift({text,ts:ev.ts,error});S.activities=S.activities.slice(0,40);$('#latest-activity').textContent=text;$('#activity-list').innerHTML=S.activities.slice(0,4).map((a,i)=>`<div class="activity-row ${a.error?'error':''} ${i===0?'new':''}"><span class="activity-dot"></span><span>${esc(a.text)}</span><time>${a.ts?new Date(a.ts).toLocaleTimeString('zh-CN',{hour12:false}):''}</time></div>`).join('');}
   function logEvent(ev){S.logs.push(ev);if(S.logs.length>300)S.logs.shift();if($('#logs-panel').open)renderLogs();}
   function renderLogs(){$('#full-logs').innerHTML=S.logs.slice(-60).reverse().map(e=>`<div><strong>${esc(e.tool||e.type)}</strong><pre>${esc(JSON.stringify(e,null,2))}</pre></div>`).join('');}
   function queueContent(stage){if(S.view!==stage)return;clearTimeout(renderTimer);renderTimer=setTimeout(()=>renderContent(),100);}
-  function renderContent(force=false){const box=$('#stage-content'),near=box.scrollHeight-box.scrollTop-box.clientHeight<100,reading=box.contains(document.activeElement)&&document.activeElement?.closest('details');if(!force&&(!near||reading)){S.dirty=true;$('#btn-new-content').classList.remove('hidden');return;}const previous=box.scrollTop;box.innerHTML=contentFor(S.view);if(force){box.classList.remove('enter');void box.offsetWidth;box.classList.add('enter');}if(!force&&near&&S.view==='reporting')box.scrollTop=box.scrollHeight;else box.scrollTop=previous;S.dirty=false;$('#btn-new-content').classList.add('hidden');box.querySelectorAll('[data-report]').forEach(b=>b.addEventListener('click',()=>{S.reportTab=b.dataset.report;renderContent(true);}));box.querySelector('[data-open-pending]')?.addEventListener('click',openPending);box.querySelector('[data-download]')?.addEventListener('click',downloadReport);box.querySelector('[data-chat-report]')?.addEventListener('click',askReport);}
+  function renderContent(force=false){const box=$('#stage-content'),near=box.scrollHeight-box.scrollTop-box.clientHeight<100,reading=box.contains(document.activeElement)&&document.activeElement?.closest('details');if(!force&&(!near||reading)){S.dirty=true;$('#btn-new-content').classList.remove('hidden');return;}const previous=box.scrollTop;box.innerHTML=contentFor(S.view);if(force){box.classList.remove('enter');void box.offsetWidth;box.classList.add('enter');}if(!force&&near&&S.view==='reporting')box.scrollTop=box.scrollHeight;else box.scrollTop=previous;S.dirty=false;$('#btn-new-content').classList.add('hidden');box.querySelectorAll('[data-report]').forEach(b=>b.addEventListener('click',()=>{S.reportTab=b.dataset.report;renderContent(true);}));box.querySelector('[data-open-pending]')?.addEventListener('click',openPending);box.querySelector('[data-download]')?.addEventListener('click',downloadReport);box.querySelector('[data-chat-report]')?.addEventListener('click',askReport);box.querySelector('[data-sag-import]')?.addEventListener('click',openSagImport);}
   function tags(items){return `<div class="tags">${(items||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</div>`;}
   function renderPlan(p){return p?`<div class="plan-goal">${esc(p.goal)}</div>${(p.subquestions||[]).map((q,i)=>`<div class="subq" style="animation-delay:${Math.min(i,5)*55}ms"><div class="subq-q">${i+1}. ${esc(q.question)}</div>${tags(q.search_queries)}</div>`).join('')}${tags(p.report_types)}`:'<div class="empty">计划尚未生成。</div>';}
-  function verification(v){return `<div class="verify-sum"><span class="verdict ${v.verdict==='pass'?'pass':'fail'}">${v.verdict==='pass'?'通过':'待复核'}</span>${esc(v.summary||'')}</div>${(v.issues||[]).map(i=>`<div class="verify-issue"><span class="verdict">${esc(i.severity)} · ${esc(i.verdict)}</span><strong>${esc(i.claim)}</strong><p>${esc(i.explanation)}</p></div>`).join('')}`;}
+  function verification(v){return `<div class="verify-sum"><span class="verdict ${checkPassed(v)?'pass':'fail'}">${checkPassed(v)?'材料检查通过':'待复核'}</span>${esc(v.summary||'')}</div><p class="verification-scope">结构、引用匹配及给定片段对照；不代表已完成外部独立事实核验。</p>${(v.issues||[]).map(i=>`<div class="verify-issue"><span class="verdict">${esc(i.severity)} · ${esc(i.verdict)}</span><strong>${esc(i.claim)}</strong><p>${esc(i.explanation)}</p></div>`).join('')}`;}
   function contentFor(stage){
     if(!S.id)return idleWorkspace;
     let html='';const pending=S.pending&&((stage==='planning'&&S.pending.kind==='plan')||(stage==='collecting'&&S.pending.kind==='sources')||(S.pending.kind==='gate'&&(S.pending.payload.stage===stage||stage==='verifying')));
     if(pending)html+='<div class="source-pending"><strong>等待您的操作</strong><p>执行已在此等待，您可以先查看已有结果。</p><button class="primary-button" data-open-pending>打开待办</button><button class="hidden" id="btn-reopen-sources" data-open-pending>选择搜索通道</button></div>';
     if(stage==='planning')html+=renderPlan(S.plan);
-    if(stage==='collecting')html+=S.evidence.map(e=>`<article class="evidence-item"><div class="evidence-meta">${esc(PROVIDERS[e.provider]||e.provider||'公开来源')} · ${esc(e.subquestion||'')}</div><a class="evidence-title" href="${esc(safeURL(e.source))}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a><p>${esc((e.content||'').slice(0,240))}</p><details><summary>查看检索片段与来源</summary><p>${esc(e.content)}</p><a href="${esc(safeURL(e.source))}" target="_blank" rel="noopener noreferrer">${esc(e.source)}</a></details></article>`).join('')||'<div class="empty">搜索结果将在通道返回后汇入这里。</div>';
+    if(stage==='collecting')html+=evidenceNotice()+S.evidence.map(e=>`<article class="evidence-item"><div class="evidence-meta">${esc(PROVIDERS[e.provider]||e.provider||'公开来源')} · ${esc(e.subquestion||'')}</div><a class="evidence-title" href="${esc(safeURL(e.source))}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a><p>${esc((e.content||'').slice(0,240))}</p><details><summary>查看检索片段与来源</summary><p>${esc(e.content)}</p><a href="${esc(safeURL(e.source))}" target="_blank" rel="noopener noreferrer">${esc(e.source)}</a></details></article>`).join('')||'<div class="empty">搜索结果将在通道返回后汇入这里。</div>';
     if(stage==='analyzing'&&S.knowledge){const k=S.knowledge;html+=`<div class="section-kicker">实体与别名归并</div><div class="alias-list">${Object.entries(k.aliases||{}).map(([a,b])=>`<span>${esc(a)} → ${esc(b)}</span>`).join('')||'暂无别名映射'}</div>${(k.viewpoints||[]).map(v=>`<article class="finding"><h3>${esc(v.topic)} <span class="tag">${esc(v.sentiment)}</span></h3><p>${esc(v.summary)}</p>${tags(v.examples)}</article>`).join('')}`;}
-    if(stage==='reasoning')html+=S.findings.map((f,i)=>`<article class="finding"><h3>${i+1}. ${esc(f.claim)}</h3><details open><summary>支持依据</summary><ul>${(f.evidence||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details><details><summary>反证 / 不同声音</summary><ul>${(f.counter_evidence||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details><div class="tags">${(f.sources||[]).map(x=>`<a class="tag" href="${esc(safeURL(x))}" target="_blank" rel="noopener noreferrer">${esc(x)}</a>`).join('')}</div></article>`).join('');
-    if(stage==='reporting'){const types=Object.keys(S.reports);if(types.length){if(!types.includes(S.reportTab))S.reportTab=types[0];const r=S.reports[S.reportTab];html+=`<div class="report-tabs">${types.map(t=>`<button data-report="${esc(t)}" class="${t===S.reportTab?'selected':''}">${esc(t)}</button>`).join('')}${S.status==='done'?'<button data-chat-report>就这份报告提问 ↗</button><button data-download>↓ 下载报告</button>':''}</div>${r.notice?`<div class="report-notice">${esc(r.notice)}</div>`:''}<div class="report-md">${markdown(r.markdown)}${r.status==='streaming'?'<span class="write-cursor"></span>':''}</div>`;}}
+    if(stage==='reasoning')html+=S.findings.map((f,i)=>`<article class="finding"><h3>${i+1}. ${esc(f.claim)}</h3><p class="finding-state">${esc({supported:'给定材料支持 · 尚未独立核实',inference:'模型推断',uncertain:'存在待核对差异',unconfirmed:'无法确认'}[f.status]||'结论状态未标注')} · ${esc(f.uncertainty_reason||'来源匹配不代表事实已核实')}</p><details open><summary>支持依据</summary><ul>${(f.evidence||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details><details><summary>反证 / 不同声音</summary><ul>${(f.counter_evidence||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details><div class="tags">${(f.sources||[]).map(x=>`<a class="tag" href="${esc(safeURL(x))}" target="_blank" rel="noopener noreferrer">${esc(x)}</a>`).join('')}</div></article>`).join('');
+    if(stage==='reporting'){const types=Object.keys(S.reports);if(types.length){if(!types.includes(S.reportTab))S.reportTab=types[0];const r=S.reports[S.reportTab];html+=`<div class="report-tabs">${types.map(t=>`<button data-report="${esc(t)}" class="${t===S.reportTab?'selected':''}">${esc(t)}</button>`).join('')}${S.status==='done'?'<button data-chat-report>就这份报告提问 ↗</button><button data-download>↓ 下载报告</button>':''}${sagEnabled&&S.status==='done'?'<button data-sag-import>保存片段到 SAG</button>':''}</div>${r.notice?`<div class="report-notice">${esc(r.notice)}</div>`:''}<div class="report-md">${markdown(r.markdown)}${r.status==='streaming'?'<span class="write-cursor"></span>':''}</div>`;}}
     if(stage==='verifying')html+=Object.entries(S.gates).map(([key,v])=>`<article class="verify-item"><h3>${esc(ROLES.find(r=>r[0]===key)?.[1]||key)} · 阶段质量关卡</h3>${verification(v)}</article>`).join('')+Object.entries(S.verifications).map(([type,v])=>`<article class="verify-item"><h3>${esc(type)} · 报告核查</h3>${verification(v)}</article>`).join('');
     if(stage!=='verifying'&&S.gates[stage])html+=`<div class="verify-item">${verification(S.gates[stage])}</div>`;
     return html||`<div class="welcome"><span class="welcome-orbit">${ROLES.find(r=>r[0]===stage)[2]}</span><h3>等待${ROLES.find(r=>r[0]===stage)[1]}产出</h3><p>${esc(ROLES.find(r=>r[0]===stage)[4])}。结果返回后会在此呈现。</p></div>`;
@@ -134,8 +156,10 @@
       case 'evidence':S.evidence=ev.items||[];changed='collecting';break;
       case 'knowledge':S.knowledge=ev.knowledge;changed='analyzing';break;
       case 'findings':S.findings=ev.findings||[];changed='reasoning';break;
-      case 'usage':{const u=S.usage[ev.stage]||(S.usage[ev.stage]={total:0});u.total+=Number(ev.total)||0;break;}
-      case 'gate_check':S.gates[ev.stage]=ev;changed=ev.stage;if(ev.verdict==='fail'&&ev.interactive){S.status='awaiting_gate';setPending('gate',ev,replay);}addActivity(ev,`${ROLES.find(r=>r[0]===ev.stage)?.[1]||'阶段'} · ${ev.verdict==='pass'?'核查通过':'核查需复核'}`);break;
+      case 'usage':{const u=S.usage[ev.stage]||(S.usage[ev.stage]={total:0,unknown:false});if(ev.total==null)u.unknown=true;else u.total+=Number(ev.total)||0;break;}
+      case 'resource_usage':S.resources=ev.stats;break;
+      case 'evidence_quality':S.quality=ev.metrics;S.conflicts=ev.conflicts||S.conflicts;changed='collecting';break;
+      case 'gate_check':S.gates[ev.stage]=ev;changed=ev.stage;if(ev.verdict==='fail'&&ev.interactive){S.status='awaiting_gate';setPending('gate',ev,replay);}addActivity(ev,`${ROLES.find(r=>r[0]===ev.stage)?.[1]||'阶段'} · ${checkPassed(ev)?'材料检查通过':'核查需复核'}`);break;
       case 'gate_resolved':clearPending('gate');S.status='running';break;
       case 'verification':S.verifications[ev.report_type]=ev.verification;changed='verifying';break;
       case 'report_start':S.reports[ev.report_type]={version:ev.version,markdown:'',status:ev.mode==='stream'?'streaming':'generating',notice:ev.attempt>1?`第 ${ev.attempt} 次生成 · ${ev.mode==='nonstream'?'普通响应兜底':'重新生成整份报告'}`:''};S.reportTab=ev.report_type;changed='reporting';break;
@@ -147,6 +171,10 @@
       case 'decision':S.decisions.push(ev);S.strategy='adaptive';addActivity(ev,ev.reason);break;
       case 'execution_policy':S.strategy=ev.search_strategy||'legacy';S.policy=ev;addActivity(ev,ev.message);break;
       case 'evidence_context':addActivity(ev,ev.message);break;
+      case 'resource_stop':addActivity(ev,ev.reason||'达到本次请求预算，保留进度');break;
+      case 'cache_invalidated':addActivity(ev,ev.message);break;
+      case 'operation_cache_invalid':addActivity(ev,ev.message,true);break;
+      case 'operation_error':addActivity(ev,`${operationLabel(ev.operation)} · 请求失败，已保留恢复进度`,true);break;
       case 'operation_restored':addActivity(ev,`${operationLabel(ev.operation)} · 复用成功产出`);break;
       case 'operation_start':addActivity(ev,`${operationLabel(ev.operation)} · 等待预算 ${Math.ceil(ev.timeout_seconds)} 秒`);break;
       case 'operation_done':addActivity(ev,`${operationLabel(ev.operation)}完成 · ${ev.elapsed_seconds} 秒`);break;
@@ -163,7 +191,7 @@
   function operationLabel(key){const parts=String(key||'').split(':');return ({planning:'研究规划',quick:'分析与结论整理',analyzing:'资料分析',reasoning:'证据推理',search:'网页查询',report:'报告处理'})[parts[0]]+(parts.includes('check')?'核查':'')||'当前步骤';}
   function showError(ev){$('#error-banner').classList.remove('hidden');$('#error-banner-title').textContent='研究暂时中断';$('#error-banner-msg').textContent=ev.message||'请求未完成，可从检查点恢复。';$('#error-banner-trace').textContent=ev.traceback||'';}
   function connect(after=-1){es?.close();const rid=S.id,source=new EventSource(`/api/runs/${rid}/events?after=${after}`);es=source;source.onopen=()=>{if(es===source)health(true,'实时连接正常');};source.onmessage=e=>{if(S.id!==rid||es!==source)return;try{ingest(JSON.parse(e.data));}catch(err){console.error(err);}};source.onerror=()=>{if(es===source&&!FINAL.has(S.status))health(false,'连接恢复中 · 后台可能仍在运行');};}
-  async function viewRun(rid){const request=++viewRequest;es?.close();es=null;closeAll();try{const d=await api(`/api/runs/${rid}`);if(request!==viewRequest)return;S=fresh();S.id=rid;S.task=d.task;S.strategy=d.search_strategy||'legacy';$('#error-banner').classList.add('hidden');for(const e of d.events||[])ingest(e,true);if(!S.decisions.length)S.decisions=d.summary?.decision_history||[];S.status=d.status;if(S.status==='done')$('#error-banner').classList.add('hidden');for(const r of d.reports||[])if(FINAL.has(d.status)||!S.reports[r.type])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications={...(d.summary?.verifications||{}),...S.verifications};S.plan=S.plan||d.summary?.plan;S.knowledge=S.knowledge||d.summary?.knowledge;if(!S.evidence.length)S.evidence=d.summary?.evidence||[];if(!S.findings.length)S.findings=d.summary?.findings||[];S.sources=d.search_sources||S.sources;S.resumeInfo=d.resume_info;setTimeline(d.timeline);if(!d.events?.length){S.plan=d.summary?.plan;S.evidence=d.summary?.evidence||[];S.knowledge=d.summary?.knowledge;S.findings=d.summary?.findings||[];for(const r of d.reports||[])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications=d.summary?.verifications||{};}if(d.pending_sources)S.pending={kind:'sources',payload:d.pending_sources};else if(d.pending_gate)S.pending={kind:'gate',payload:d.pending_gate};else if(d.pending_plan)S.pending={kind:'plan',payload:{plan:d.pending_plan}};else if(FINAL.has(S.status))S.pending=null;S.view=S.pending?.kind==='sources'?'collecting':current();renderScreen();renderMetrics();renderContent(true);if(!FINAL.has(S.status))connect((d.events||[]).length-1);if(S.pending)openPending();loadHistory();}catch(error){toast(error.message);}}
+  async function viewRun(rid){const request=++viewRequest;es?.close();es=null;closeAll();try{const d=await api(`/api/runs/${rid}`);if(request!==viewRequest)return;S=fresh();S.id=rid;S.task=d.task;S.strategy=d.search_strategy||'legacy';$('#error-banner').classList.add('hidden');for(const e of d.events||[])ingest(e,true);if(!S.decisions.length)S.decisions=d.summary?.decision_history||[];S.status=d.status;if(S.status==='done')$('#error-banner').classList.add('hidden');for(const r of d.reports||[])if(FINAL.has(d.status)||!S.reports[r.type])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications={...(d.summary?.verifications||{}),...S.verifications};S.resources=d.summary?.resource_usage||S.resources;S.quality=d.summary?.evidence_metrics||S.quality;S.conflicts=d.summary?.conflicts||S.conflicts;S.plan=S.plan||d.summary?.plan;S.knowledge=S.knowledge||d.summary?.knowledge;if(!S.evidence.length)S.evidence=d.summary?.evidence||[];if(!S.findings.length)S.findings=d.summary?.findings||[];S.sources=d.search_sources||S.sources;S.resumeInfo=d.resume_info;setTimeline(d.timeline);if(!d.events?.length){S.plan=d.summary?.plan;S.evidence=d.summary?.evidence||[];S.knowledge=d.summary?.knowledge;S.findings=d.summary?.findings||[];for(const r of d.reports||[])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications=d.summary?.verifications||{};}if(d.pending_sources)S.pending={kind:'sources',payload:d.pending_sources};else if(d.pending_gate)S.pending={kind:'gate',payload:d.pending_gate};else if(d.pending_plan)S.pending={kind:'plan',payload:{plan:d.pending_plan}};else if(FINAL.has(S.status))S.pending=null;S.view=S.pending?.kind==='sources'?'collecting':current();renderScreen();renderMetrics();renderContent(true);if(!FINAL.has(S.status))connect((d.events||[]).length-1);if(S.pending)openPending();loadHistory();}catch(error){toast(error.message);}}
   function newResearch(){
     if(startPending||S.id&&!FINAL.has(S.status))return;
     ++viewRequest;es?.close();es=null;closeAll();S=fresh();
@@ -180,13 +208,61 @@
   function closeAll(){$$('.modal-overlay').forEach(m=>m.classList.add('hidden'));document.dispatchEvent(new CustomEvent('osint:report-chat-close'));}
   function openModal(id){openTrigger=document.activeElement;closeAll();const modal=$('#'+id);modal.classList.remove('hidden');modal.querySelector('button,input,textarea')?.focus();}
   function closeModal(id){$('#'+id).classList.add('hidden');if(openTrigger?.isConnected)openTrigger.focus();}
-  function openPending(){if(!S.pending)return;const {kind,payload}=S.pending;if(kind==='plan'){$('#confirm-plan-body').innerHTML=renderPlan(payload.plan||S.plan);openModal('confirm-modal');}if(kind==='sources'){$('#sources-options').innerHTML=(payload.options||[]).map(p=>`<label class="source-option"><input type="checkbox" value="${esc(p.id)}" ${(payload.selected||[]).includes(p.id)?'checked':''}><span><strong>${esc(p.name)}<span class="source-cost ${p.free?'':'paid'}">${p.free?'免 Key · 免费档':'可能计费'}</span></strong><small>${esc(p.description)}</small></span></label>`).join('');$('#sources-error').textContent='';openModal('sources-modal');}if(kind==='gate'){$('#gate-modal-sub').textContent='请检查问题与影响，再选择重做或接受问题继续。';$('#gate-body').innerHTML=verification(payload);openModal('gate-modal');}}
+  function openPending(){if(!S.pending)return;const {kind,payload}=S.pending;if(kind==='plan'){const routing=S.policy?.routing?.reason;$('#confirm-plan-body').innerHTML=(routing?`<p><strong>${esc(S.policy.label)}</strong> ‷ ${esc(routing)}</p>`:'')+renderPlan(payload.plan||S.plan);openModal('confirm-modal');}if(kind==='sources'){$('#sources-options').innerHTML=(payload.options||[]).map(p=>`<label class="source-option"><input type="checkbox" value="${esc(p.id)}" ${(payload.selected||[]).includes(p.id)?'checked':''}><span><strong>${esc(p.name)}<span class="source-cost ${p.free?'':'paid'}">${p.free?'免 Key · 免费档':'可能计费'}</span></strong><small>${esc(p.description)}</small></span></label>`).join('');$('#sources-error').textContent='';openModal('sources-modal');}if(kind==='gate'){$('#gate-modal-sub').textContent='请检查问题与影响，再选择重做或接受问题继续。';$('#gate-body').innerHTML=verification(payload);openModal('gate-modal');}}
   async function submit(button,url,body,modal){const rid=S.id;button.disabled=true;try{await api(`/api/runs/${rid}/${url}`,body);if(S.id===rid)closeModal(modal);}catch(error){if(modal==='sources-modal')$('#sources-error').textContent=error.message;else toast(error.message);}finally{button.disabled=false;}}
   function askReport(){if(S.status!=='done')return;const reportType=Object.keys(S.reports).includes(S.reportTab)?S.reportTab:Object.keys(S.reports)[0];if(reportType)document.dispatchEvent(new CustomEvent('osint:report-question',{detail:{runId:S.id,reportType}}));}
   function downloadReport(){if(S.id)window.location.assign(`/api/runs/${S.id}/report.md`);}
+  async function openSagImport(){
+    if(!sagEnabled||S.status!=='done'||!S.reportTab)return;
+    const draft={runId:S.id,reportType:S.reportTab,version:null};
+    sagDraft=draft;
+    const list=$('#sag-import-sections'),status=$('#sag-import-status');
+    list.replaceChildren();
+    status.textContent='正在读取报告片段…';
+    $('#sag-import-submit').disabled=true;
+    openModal('sag-import-modal');
+    try{
+      const data=await api(`/api/runs/${draft.runId}/sag-import?report_type=${encodeURIComponent(draft.reportType)}`);
+      if(sagDraft!==draft)return;
+      draft.version=data.report_version;
+      list.innerHTML=data.sections.map(section=>`<article class="source-option"><span>
+        <label><input type="checkbox" value="${esc(section.id)}"> <strong>${esc(section.title)}</strong></label>
+        <details><summary>预览片段</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(section.markdown)}</pre></details>
+      </span></article>`).join('');
+      status.textContent='勾选要保存的片段。';
+    }catch(error){if(sagDraft===draft)status.textContent=error.message;}
+  }
+  async function saveSagImport(){
+    const draft=sagDraft, button=$('#sag-import-submit'),status=$('#sag-import-status');
+    const inputs=$$('#sag-import-sections input');
+    const ids=inputs.filter(input=>input.checked).map(input=>Number(input.value));
+    if(!draft?.version||!ids.length||button.disabled)return;
+    button.disabled=true;
+    inputs.forEach(input=>input.disabled=true);
+    status.textContent='正在保存并检查索引…';
+    let saved=false;
+    try{
+      const result=await api(`/api/runs/${draft.runId}/sag-import`,{
+        report_type:draft.reportType,report_version:draft.version,section_ids:ids
+      });
+      if(sagDraft!==draft)return;
+      saved=true;
+      status.textContent=result.status==='indexed'
+        ? `已保存 ${result.count} 个片段，可在 SAG Wiki 中搜索。`
+        : '片段已保存，SAG Wiki 尚未完成索引。索引更新后即可搜索。';
+    }catch(error){if(sagDraft===draft)status.textContent=error.message;}
+    finally{
+      if(sagDraft===draft&&!saved){
+        inputs.forEach(input=>input.disabled=false);
+        button.disabled=false;
+      }
+    }
+  }
   function inline(text){return esc(text).replace(/\[([^\]]+)\]\(([^)]+)\)/g,(_,label,url)=>safeURL(url)?`<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`:label).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');}
   function markdown(src){const lines=String(src||'').split(/\r?\n/),out=[];let list='',code=false,buffer=[];const close=()=>{if(list){out.push(`</${list}>`);list='';}};for(let i=0;i<lines.length;i++){const t=lines[i].trim();if(t.startsWith('```')){close();if(code){out.push('<pre><code>'+esc(buffer.join('\n'))+'</code></pre>');buffer=[];}code=!code;continue;}if(code){buffer.push(lines[i]);continue;}if(!t){close();continue;}if(t.startsWith('|')&&i+1<lines.length&&/^\|?[\s:|\-]+\|$/.test(lines[i+1].trim())){close();const cells=x=>x.replace(/^\||\|$/g,'').split('|');out.push('<table><thead><tr>'+cells(t).map(x=>'<th>'+inline(x)+'</th>').join('')+'</tr></thead><tbody>');i+=2;for(;i<lines.length&&lines[i].trim().startsWith('|');i++)out.push('<tr>'+cells(lines[i].trim()).map(x=>'<td>'+inline(x)+'</td>').join('')+'</tr>');i--;out.push('</tbody></table>');continue;}const h=t.match(/^(#{1,6})\s+(.*)$/);if(h){close();out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`);continue;}const li=t.match(/^([-*+]\s+|\d+[.)]\s+)(.*)$/);if(li){const kind=/^\d/.test(li[1])?'ol':'ul';if(kind!==list){close();out.push(`<${kind}>`);list=kind;}out.push('<li>'+inline(li[2])+'</li>');continue;}close();out.push(t.startsWith('>')?'<blockquote>'+inline(t.slice(1))+'</blockquote>':/^---+$/.test(t)?'<hr>':'<p>'+inline(t)+'</p>');}close();if(buffer.length)out.push('<pre><code>'+esc(buffer.join('\n'))+'</code></pre>');return out.join('');}
   function bind(){
+    $('#sag-import-sections').onchange=()=>{$('#sag-import-submit').disabled=!$('#sag-import-sections input:checked');};
+    $('#sag-import-submit').onclick=saveSagImport;
     $('#btn-history').onclick=()=>{const open=document.body.classList.toggle('mobile-history-open');$('#btn-history').setAttribute('aria-expanded',String(open));$('#btn-history').textContent=open?'收起研究记录 ↑':'展开研究记录 ↓';};
     $('#btn-new-research').onclick=newResearch;$('#btn-run').onclick=startRun;$('#btn-cancel').onclick=cancelRun;$('#btn-resume').onclick=resumeRun;$('#btn-refresh-history').onclick=loadHistory;
     $('#resume-change-models').onchange=runningUI;
@@ -217,11 +293,11 @@
       if(request!==recommendationRequest)return;
       modelDefaults=d.role_models;modelReasons=d.reasons||{};
       applyModelMode($('#model-mode').value==='recommended');
-      $('#mode-description').textContent=`${mode==='auto'?'自动匹配：':''}${d.label} · 已配置对应岗位模型${$('#model-mode').value==='custom'?'（当前保留手动选择）':''}。`;
+      $('#mode-description').textContent=d.semantic_on_start?'开始后按任务选择最多 1、3 或 5 个子问题。':`${mode==='auto'?'自动匹配：':''}${d.label} · 已配置对应岗位模型${$('#model-mode').value==='custom'?'（当前保留手动选择）':''}。`;
     }catch{if(request===recommendationRequest)toast('模型推荐更新失败，请重新选择研究深度后重试');}
   }
   function openFinalReport(){selectStage('reporting',false);$('#stage-content').scrollTop=0;$('.result-panel').scrollIntoView({behavior:'instant',block:'start'});}
-  async function init(){buildNav();bind();setInterval(tick,1000);renderScreen();$('#model-mode').onchange=()=>applyModelMode($('#model-mode').value==='recommended');$('#btn-reset-models').onclick=()=>{$('#model-mode').value='recommended';applyModelMode(true);toast('已恢复推荐岗位模型');};$('#execution-mode').onchange=()=>{$('#mode-description').textContent=({auto:'简单释义合并分析与推理；复杂任务保留完整研究流程。',quick:'工作预算 5 分钟，1 份简明报告，保留最终事实核查。',standard:'工作预算 8 分钟，按需生成报告，避免逐阶段重复核查。',deep:'工作预算 12 分钟，更多证据与定向核查。人工等待不计入预算。'})[$('#execution-mode').value];};await Promise.allSettled([api('/api/health').then(d=>health(d.has_key,d.has_key?'服务已连接':'缺少模型 API Key')).catch(()=>health(false,'服务离线')),api('/api/models').then(d=>{modelDefaults=d.role_defaults||{};modelReasons=d.role_reasons||{};modelProfiles=d.role_profiles||{};profileReasons=d.profile_reasons||{};$$('#role-grid select').forEach(sel=>{sel.innerHTML=(d.models||[]).map(m=>`<option value="${esc(m.id)}" ${m.available===false?'disabled':''}>${esc(m.label)}${m.available===false?' · 当前额度不可用':''}</option>`).join('');const note=document.createElement('small');note.textContent=modelReasons[sel.dataset.role]||'';sel.parentElement.append(note);});$('#model-sources').innerHTML=(d.sources||[]).map(s=>`<a href="${esc(safeURL(s.url))}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>`).join(' · ');applyModelMode(true);modelsLoaded=true;renderReadiness();runningUI();updateRecommendation();}).catch(()=>{modelsLoadFailed=true;renderReadiness();toast('无法载入岗位配置，请刷新后重试');})]);loadHistory();}
+  async function init(){buildNav();bind();setInterval(tick,1000);renderScreen();$('#model-mode').onchange=()=>applyModelMode($('#model-mode').value==='recommended');$('#btn-reset-models').onclick=()=>{$('#model-mode').value='recommended';applyModelMode(true);toast('已恢复推荐岗位模型');};$('#execution-mode').onchange=()=>{$('#mode-description').textContent=({auto:'简单释义合并分析与推理；复杂任务保留完整研究流程。',quick:'工作预算 5 分钟，1 份简明报告，保留最终事实核查。',standard:'工作预算 8 分钟，按需生成报告，避免逐阶段重复核查。',deep:'工作预算 12 分钟，更多证据与定向核查。人工等待不计入预算。'})[$('#execution-mode').value];};await Promise.allSettled([api('/api/health').then(d=>health(d.has_key,d.has_key?'服务已连接':'缺少模型 API Key')).catch(()=>health(false,'服务离线')),api('/api/models').then(d=>{sagEnabled=d.sag_enabled===true;modelDefaults=d.role_defaults||{};modelReasons=d.role_reasons||{};modelProfiles=d.role_profiles||{};profileReasons=d.profile_reasons||{};$$('#role-grid select').forEach(sel=>{sel.innerHTML=(d.models||[]).map(m=>`<option value="${esc(m.id)}" ${m.available===false?'disabled':''}>${esc(m.label)}${m.available===false?' · 当前额度不可用':''}</option>`).join('');const note=document.createElement('small');note.textContent=modelReasons[sel.dataset.role]||'';sel.parentElement.append(note);});$('#model-sources').innerHTML=(d.sources||[]).map(s=>`<a href="${esc(safeURL(s.url))}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>`).join(' · ');applyModelMode(true);modelsLoaded=true;renderReadiness();runningUI();updateRecommendation();}).catch(()=>{modelsLoadFailed=true;renderReadiness();toast('无法载入岗位配置，请刷新后重试');})]);loadHistory();}
   document.addEventListener('DOMContentLoaded',()=>{
     $('#btn-comparison').onclick=async()=>{try{const d=await api('/api/comparison');$('#comparison-result').innerHTML='<p>固定模拟数据；不是实际搜索质量或云端耗时承诺。完整报告位于 outputs/comparison/latest.md。</p>'+d.scenarios.map(s=>`<h3>${esc(s.name)}</h3><table><thead><tr><th>指标</th><th>Legacy</th><th>Adaptive</th></tr></thead><tbody>${['search_calls','unique_urls','unique_domains','duplicate_ratio','supplemental_searches','early_stops','provider_switches'].map(k=>`<tr><th>${esc(({search_calls:'搜索次数',unique_urls:'独立网址',unique_domains:'来源域名',duplicate_ratio:'重复率',supplemental_searches:'补搜次数',early_stops:'提前停止',provider_switches:'渠道切换'})[k])}</th><td>${esc(s.legacy[k]??'unknown')}</td><td>${esc(s.adaptive[k]??'unknown')}</td></tr>`).join('')}</tbody></table>`).join('');}catch(e){$('#comparison-result').textContent=e.message;}};
   });

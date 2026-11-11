@@ -153,7 +153,7 @@ async def ask(run_id, report_type, text, req):
             if previous['question'] != question or previous['model_id'] != req.model_id:
                 raise ChatError(409, '同一发送编号不能用于不同问题或模型，请重新发送。')
             return {**config.redact_data(data), 'reused': True}
-        if not config.DASHSCOPE_API_KEY:
+        if not config.chat_api_key():
             raise ChatError(503, '服务没有可用 API Key，请重启服务并按提示输入。')
         if len(data['turns']) >= MAX_TURNS:
             raise ChatError(409, '此报告的对话已达到 50 轮上限；原报告仍可阅读和下载。')

@@ -44,7 +44,7 @@ if /i "%~1"=="--check" (
   if errorlevel 1 exit /b 1
   exit /b 0
 )
-%PYCMD% -B launch.py
+%PYCMD% -B launch.py %*
 set "LAUNCH_EXIT=%errorlevel%"
 echo.
 echo Service stopped.

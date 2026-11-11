@@ -1,6 +1,5 @@
-# models.py -- 模型清单（能力更强的新一代模型，全部经阿里云百炼兼容模式调用）
+# models.py -- 百炼模型清单
 # 每个模型 = 一个 id（传给 API 的 model 字段）+ 展示用元数据。
-# 端点与鉴权统一走 config 的兼容模式（DASHSCOPE_API_KEY）。
 from __future__ import annotations
 
 from typing import Optional
@@ -121,7 +120,6 @@ for _m in MODELS:
     _m.setdefault("context_window", _ctx)
     _m.setdefault("max_output_tokens", _out)
 
-
 def get_model(model_id: str) -> Optional[dict]:
     for m in MODELS:
         if m["id"] == model_id:
@@ -187,6 +185,10 @@ PROFILE_REASONS = {
 def role_defaults(mode="standard"):
     return dict(ROLE_PROFILES.get(mode, ROLE_PROFILES["standard"]))
 
+
+def role_reasons(mode):
+    return PROFILE_REASONS[mode]
+
 MODEL_SOURCES = [
     {"title": "阿里云：Qwen3.8 Flash", "url": "https://help.aliyun.com/zh/model-studio/qwen3-8-flash"},
     {"title": "阿里云：DeepSeek V4.1 Flash", "url": "https://help.aliyun.com/zh/model-studio/deepseek-v4-1-flash"},
@@ -196,11 +198,11 @@ MODEL_SOURCES = [
 
 
 def role_options(role, model_id, mode="standard", max_tokens=4000):
-    """当前客户端使用 Responses；reasoning.effort 是该协议的参数。"""
+    """百炼 Responses 使用 reasoning.effort。"""
     effort = "high" if mode == "deep" and role == "reasoner" else "low"
     if role in {"analyst","verifier"} and model_id in {"qwen3.8-flash", "qwen3.8-max", "deepseek-v4.1-flash", "deepseek-v4.1-flash-1017", "qwen3.8-27b"}:
         effort = "none"
-    if role in {"planner", "reporter", "collector"} and model_id in {"qwen3.8-flash", "qwen3.8-27b", "qwen3.8-max"}:
+    if role in {"router", "planner", "reporter", "collector"} and model_id in {"qwen3.8-flash", "qwen3.8-27b", "qwen3.8-max"}:
         effort = "none"
     options = {"max_tokens": max_tokens, "reasoning": {"effort": effort}}
     return options

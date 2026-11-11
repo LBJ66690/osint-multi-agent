@@ -43,8 +43,11 @@ async def main(argv=None) -> int:
         run_id=uuid.uuid4().hex[:12]
 
     async def cli_emit(ev: dict):
+        ev = config.redact_data(ev)
         ev_type = ev.get("type")
-        if ev_type == "stage":
+        if ev_type == "execution_policy" and ev.get("routing"):
+            print(ev["message"])
+        elif ev_type == "stage":
             status = ev.get("status")
             if status == "running":
                 hr(f"阶段【{ev.get('stage')}】进行中: {ev.get('label')}")
@@ -125,7 +128,7 @@ async def main(argv=None) -> int:
             print(" -", r)
         return 0
     except Exception as e:
-        print(f"\n任务中断: {e}")
+        print(f"\n任务中断: {config.redact_secret(str(e))}")
         print(f"恢复命令：python main.py --resume {run_id}")
         return 1
 

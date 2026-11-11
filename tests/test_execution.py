@@ -119,6 +119,68 @@ class Fixture(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.checkpoint()['status'],'done')
         self.assertEqual(len(summary['reports']),1)
 
+    async def test_semantic_route_upgrade_and_resume(self):
+        from research_routing import Route, RoutedPlan
+        async def produce(agent, prompt, schema, **kwargs):
+            if schema is RoutedPlan:
+                value, _, usage = await self.model(agent, prompt, ResearchPlan, **kwargs)
+                return RoutedPlan(**value.model_dump(), minimum_depth="standard",
+                                  depth_reason="需要核对两种统计口径"), "", usage
+            return await self.model(agent, prompt, schema, **kwargs)
+
+        async def stop(_):
+            raise ConnectionError("interrupted while confirming")
+
+        with patch("pipeline_execution.classify", new=AsyncMock(
+                    return_value=Route(mode="quick", reason="先按简明预算"))) as route, \
+                patch.object(pipeline, "run_json", side_effect=produce):
+            with self.assertRaises(ConnectionError):
+                await self.run_task(confirm=stop)
+            self.assertEqual(self.checkpoint()["execution_mode"], "standard")
+            self.assertTrue(self.checkpoint()["routing"]["upgraded"])
+            planned = self.calls["ResearchPlan"]
+            summary = await self.run_task(resume=True)
+            route.assert_awaited_once()
+            self.assertEqual(self.calls["ResearchPlan"], planned)
+            self.assertEqual(summary["routing"]["mode"], "standard")
+
+    async def test_daily_auto_route_applies_profile_and_preserves_manual_roles(self):
+        from research_routing import Route
+        with patch("pipeline_execution.classify", new=AsyncMock(
+                return_value=Route(mode="deep", reason="需要跨来源核对"))) as router:
+            summary = await self.run_task(role_models_override={"reporter": "qwen3.8-flash"})
+        router.assert_awaited_once()
+        self.assertEqual(summary["model_provider"], "bailian")
+        self.assertEqual(summary["routing"]["mode"], "deep")
+        expected = models.role_defaults("deep")
+        expected["reporter"] = "qwen3.8-flash"
+        self.assertEqual(summary["role_models"], expected)
+
+    async def test_daily_router_uses_bailian_lightweight_planner(self):
+        from research_routing import classify
+        agent = SimpleNamespace(run=AsyncMock(return_value=SimpleNamespace(
+            text='{"mode":"quick","reason":"一个事实"}')))
+        with patch.object(config, "DASHSCOPE_API_KEY", "fixture-bailian"), \
+                patch.object(pipeline, "build_agent", return_value=agent) as build:
+            result = await classify(pipeline, "测试", self.emit, AsyncMock())
+        self.assertEqual(result.mode, "quick")
+        self.assertEqual(build.call_args.args[0], models.ROLE_PROFILES["quick"]["planner"])
+
+    async def test_sag_only_fills_gap_and_saved_evidence_survives_resume(self):
+        import sag_evidence
+        hit = EvidenceItem(subquestion="测试问题", title="本地资料 · notice.md 第 4–4 行",
+                           content="测试问题可参考论文中解释的另一种口径。",
+                           source="http://127.0.0.1:8766/api/runs/test/sag-evidence/example", provider="sag")
+        with patch.object(sag_evidence, "settings", return_value=(self.root, self.root)), \
+                patch.object(sag_evidence, "search", new=AsyncMock(return_value=[hit])) as sag:
+            self.fail_schema = QuickSynthesis
+            with self.assertRaises(ConnectionError):
+                await self.run_task(execution_mode="quick")
+            self.assertIn(hit.model_dump(), self.checkpoint()["evidence"])
+            self.fail_schema = None
+            await self.run_task(resume=True)
+            sag.assert_awaited_once()
+
     async def test_plan_revision_can_be_confirmed_even_if_model_returns_same_plan(self):
         decisions=iter(['补充时间范围',''])
         async def confirm(_):return next(decisions)

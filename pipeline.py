@@ -168,24 +168,8 @@ def load_checkpoint(run_id: str) -> dict | None:
 
 
 def _verification_appendix(report_type: str, v: VerificationReport) -> str:
-    """把核查结论格式化为追加在报告末尾的「事实核查附录」Markdown。"""
-    lines = [
-        "\n\n---\n\n",
-        f"## 附：事实核查（{report_type}）\n\n",
-        f"**核查结论**：{v.summary}\n\n",
-    ]
-    if not v.issues:
-        lines.append("本次核查未发现无出处、推测当事实或与证据冲突的陈述。\n")
-        return "".join(lines)
-    sev_order = {"高": 0, "中": 1, "低": 2}
-    issues = sorted(v.issues, key=lambda i: sev_order.get(i.severity, 3))
-    lines.append(f"共发现问题 {len(issues)} 条，按严重程度排序：\n\n")
-    lines.append("| 被核查陈述 | 结论 | 核查依据 | 严重度 |\n|---|---|---|---|\n")
-    for i in issues:
-        claim = i.claim.replace("|", "\\|").replace("\n", " ")
-        exp = i.explanation.replace("|", "\\|").replace("\n", " ")
-        lines.append(f"| {claim} | {i.verdict} | {exp} | {i.severity} |\n")
-    return "".join(lines)
+    from evidence_verification import verification_appendix
+    return verification_appendix(report_type, v)
 
 
 async def run_pipeline(task, model_id, emit, confirm, run_id="", role_models_override=None,
