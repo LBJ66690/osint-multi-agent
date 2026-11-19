@@ -40,20 +40,20 @@ class ReportChatTests(unittest.IsolatedAsyncioTestCase):
     async def test_selected_report_and_model_sent_without_research_side_effects(self):
         reports=json.dumps(self.state.reports,ensure_ascii=False)
         with patch('pipeline.run_pipeline',side_effect=AssertionError('must not run research')):
-            r=await self.client.post(self.url(),json=await self.body(model_id='kimi-k3',report='伪造报告内容'))
+            r=await self.client.post(self.url(),json=await self.body(model_id='kimi-k3.1-pro',report='伪造报告内容'))
         self.assertEqual(r.status_code,200)
         model,prompt=self.model.call_args.args;packet=json.loads(prompt)
-        self.assertEqual(model,'kimi-k3');self.assertEqual(packet['report'],self.state.reports[0]['markdown'])
+        self.assertEqual(model,'kimi-k3.1-pro');self.assertEqual(packet['report'],self.state.reports[0]['markdown'])
         self.assertNotIn('报告乙',prompt);self.assertNotIn('伪造报告内容',prompt)
         self.assertEqual(self.state.status,'done');self.assertEqual(self.state.events,[]);self.assertIsNone(self.state.task_obj)
         self.assertEqual(json.dumps(self.state.reports,ensure_ascii=False),reports)
-        self.assertEqual((await self.info()).json()['turns'][0]['model_id'],'kimi-k3')
+        self.assertEqual((await self.info()).json()['turns'][0]['model_id'],'kimi-k3.1-pro')
         self.assertTrue((self.root/'report_chats').is_dir())
         self.assertFalse((self.root/'checkpoints').exists())
 
     async def test_multiple_turns_include_latest_three_and_models_can_change(self):
         for i in range(5):
-            body=await self.body(question=f'第{i}个追问',request_id=f'question-{i:03}',model_id='kimi-k3' if i%2 else 'qwen3.8-flash')
+            body=await self.body(question=f'第{i}个追问',request_id=f'question-{i:03}',model_id='kimi-k3.1-pro' if i%2 else 'qwen3.8-flash')
             self.assertEqual((await self.client.post(self.url(),json=body)).status_code,200)
         packet=json.loads(self.model.call_args.args[1])
         self.assertEqual(len(packet['conversation']),3);self.assertEqual(packet['conversation'][0]['question'],'第1个追问')
@@ -186,9 +186,9 @@ class ModelAdapterTests(unittest.IsolatedAsyncioTestCase):
         close=AsyncMock();agent=SimpleNamespace(run=AsyncMock(return_value=SimpleNamespace(text='回答',usage_details=None)),
             client=SimpleNamespace(client=SimpleNamespace(close=close)))
         with patch.object(agents,'build_agent',return_value=agent) as build:
-            answer,usage=await report_chat.generate_answer('kimi-k3','报告和问题')
+            answer,usage=await report_chat.generate_answer('kimi-k3.1-pro','报告和问题')
         self.assertEqual(answer,'回答');self.assertIsNone(usage);close.assert_awaited_once()
-        self.assertEqual(build.call_args.args[0],'kimi-k3');self.assertNotIn('tools',build.call_args.kwargs)
+        self.assertEqual(build.call_args.args[0],'kimi-k3.1-pro');self.assertNotIn('tools',build.call_args.kwargs)
 
     async def test_model_adapter_timeout_closes_client(self):
         async def slow(*args):await asyncio.sleep(10)

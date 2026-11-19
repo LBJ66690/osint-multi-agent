@@ -5,16 +5,18 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-import time
-import hashlib
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import uvicorn
+import pymysql
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Literal
@@ -27,6 +29,9 @@ import search_sources
 import report_chat
 import sag_evidence
 import sag_report_import
+import web_auth
+from bailian_models import QUOTA_EXPIRY
+from mysql_store import MySQLStore, mysql_settings
 from resource_usage import snapshot as resource_snapshot
 from runtime_state import RunTimeline
 from execution_policy import choose_policy
@@ -39,13 +44,82 @@ STATIC = ROOT / "static"
 async def lifespan(app):
     from asyncio_compat import install_cleanup_handler
     restore = install_cleanup_handler(asyncio.get_running_loop())
+    store = None
     try:
+        if web_auth.online_enabled():
+            app.state.online_settings = web_auth.OnlineSettings()
+            store = MySQLStore(mysql_settings())
+            try:
+                await asyncio.to_thread(store.check_schema)
+                await asyncio.to_thread(store.recover_interrupted_runs)
+            except pymysql.MySQLError:
+                raise RuntimeError("无法连接 MySQL 或数据库表未初始化。请检查数据库配置和建表脚本。") from None
+            app.state.online_store = store
+            app.state.create_lock = asyncio.Lock()
         yield
     finally:
+        if store:
+            tasks = [state.task_obj for state in runs.values()
+                     if state.store is store and state.task_obj and not state.task_obj.done()]
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            for run_id in [key for key, state in runs.items() if state.store is store]:
+                runs.pop(run_id)
+            app.state.online_store = None
         restore()
 
 
 app = FastAPI(title="开源情报多智能体平台", version="2.5", lifespan=lifespan)
+app.include_router(web_auth.router)
+
+PUBLIC_API = {"/api/health", "/api/auth/options", "/api/auth/register", "/api/auth/login", "/api/auth/logout"}
+
+
+@app.exception_handler(RequestValidationError)
+async def hide_auth_input(request, exc):
+    if request.url.path.startswith("/api/auth/"):
+        return JSONResponse({"detail": "账户表单格式有误，请检查后重试。"}, status_code=422)
+    return await request_validation_exception_handler(request, exc)
+
+
+@app.exception_handler(pymysql.MySQLError)
+async def database_error(_request, exc):
+    config.logger.error("MySQL 操作失败，错误类型 %s", type(exc).__name__)
+    return JSONResponse({"detail": "数据库暂时不可用，请稍后再试。"}, status_code=503)
+
+
+@app.middleware("http")
+async def protect_online_requests(request: Request, call_next):
+    if not web_auth.online_enabled():
+        return await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/"):
+        response = await call_next(request)
+    else:
+        store = web_auth.store_for(request)
+        if not store:
+            return JSONResponse({"detail": "服务正在连接数据库。"}, status_code=503)
+        settings = request.app.state.online_settings
+        if request.method not in {"GET", "HEAD", "OPTIONS"} and request.headers.get("origin") != settings.origin:
+            return JSONResponse({"detail": "请求来源与站点地址不匹配。"}, status_code=403)
+        request.state.user = None
+        try:
+            if path not in PUBLIC_API or path == "/api/health":
+                digest = web_auth.session_digest(request)
+                if digest:
+                    request.state.user = await asyncio.to_thread(store.session_user, digest)
+            if path.startswith("/api/") and path not in PUBLIC_API and not request.state.user:
+                return JSONResponse({"detail": "请先登录。"}, status_code=401, headers={"Cache-Control": "no-store"})
+            response = await call_next(request)
+        except pymysql.MySQLError as exc:
+            response = await database_error(request, exc)
+        response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    return response
 
 FINAL = {"done", "error", "cancelled"}
 MAX_RUNS = 60  # 内存中最大保留任务数，避免长时间运行 OOM
@@ -55,6 +129,9 @@ class RunState:
     def __init__(self, task: str, model_id: str, auto_confirm: bool = False,
                  role_models: Optional[dict] = None, execution_mode: str = "auto"):
         self.id = uuid.uuid4().hex[:12]
+        self.owner_id: Optional[int] = None
+        self.store: Optional[MySQLStore] = None
+        self.persisted_events = 0
         self.task = task
         self.model_id = model_id
         self.role_models = role_models or models.role_defaults(choose_policy(task, execution_mode).mode)
@@ -113,11 +190,11 @@ class RunState:
             "search_strategy": self.search_strategy,
         }
 
-    def to_detail(self) -> dict:
+    def to_detail(self, checkpoint=None) -> dict:
         recovery=None
         if self.status in {'error','cancelled'}:
             try:
-                recovery=resume_info(pipeline.load_checkpoint(self.id),self.id)
+                recovery=resume_info(checkpoint if self.store else pipeline.load_checkpoint(self.id),self.id)
             except (ValueError,TypeError,KeyError):
                 recovery={'unavailable':True,'message':'检查点缺失或不完整，无法安全恢复'}
         return {
@@ -157,6 +234,15 @@ def _events_path(run_id: str) -> Path:
 
 async def _persist_events(state: "RunState") -> None:
     """将运行过程事件流落盘，服务重启后即可完整回放历史。"""
+    if state.store:
+        async with state.persist_lock:
+            events = state.events[state.persisted_events:]
+            await asyncio.to_thread(
+                state.store.save_run_progress, state.id, state.to_summary(), state.persisted_events,
+                events, config.redact_data(state.summary) if state.status in FINAL else None,
+            )
+            state.persisted_events += len(events)
+        return
     if not state.id or not state.events:
         return
     try:
@@ -335,9 +421,9 @@ async def _run_task(state: RunState, resume: bool = False):
     # 交互模式关卡挂起等用户决策；auto_confirm（自动模式）交给流水线自动决策
     gate = None if state.auto_confirm else await _gate_for(state)
     state.status = "running"
-    if resume:
-        await emit({"type": "resumed", "run_id": state.id, "message": "已从上一次检查点断点恢复执行"})
     try:
+        if resume:
+            await emit({"type": "resumed", "run_id": state.id, "message": "已从上一次检查点断点恢复执行"})
         summary = await pipeline.run_pipeline(
             state.task,
             state.model_id,
@@ -350,12 +436,10 @@ async def _run_task(state: RunState, resume: bool = False):
             select_sources=choose_sources,
             execution_mode=state.execution_mode,
             search_strategy=state.search_strategy,
+            **({"store": state.store} if state.store else {}),
         )
         state.summary = summary
-        state.reports = [
-            {"type": rt, "path": p, "markdown": _read_report(p)}
-            for rt, p in _iter_reports(summary)
-        ]
+        state.reports = await _run_reports(state, summary)
         state.status = "done"
         async with state.cond:
             state.cond.notify_all()
@@ -367,13 +451,17 @@ async def _run_task(state: RunState, resume: bool = False):
             state.cond.notify_all()
     except Exception as e:  # noqa: BLE001
         state.status = "error"
-        state.summary = {**state.summary, "error": config.redact_secret(f"{type(e).__name__}: {e}")}
+        message = "数据库暂时不可用，任务已暂停。" if isinstance(e, pymysql.MySQLError) else str(e)
+        state.summary = {**state.summary, "error": config.redact_secret(message)}
         if not state.events or state.events[-1].get('type') != 'error':
-            await emit({'type':'error','message':str(e),'can_resume':True})
+            await emit({'type':'error','message':message,'can_resume':True})
         async with state.cond:
             state.cond.notify_all()
     finally:
-        await _persist_events(state)
+        try:
+            await _persist_events(state)
+        except pymysql.MySQLError:
+            config.logger.error("[%s] 暂未保存任务最终进度", state.id)
 
 
 def _iter_reports(summary: dict):
@@ -393,10 +481,81 @@ def _read_report(path: str) -> str:
         return ""
 
 
+async def _run_reports(state, summary):
+    saved = await asyncio.to_thread(state.store.read_reports, state.id) if state.store else None
+    return [
+        {"type": rt, "path": path, "markdown": _read_report(path) if saved is None else saved.get(Path(path).name, "")}
+        for rt, path in _iter_reports(summary)
+    ]
+
+
+async def _get_run_state(run_id, request=None):
+    store = web_auth.store_for(request)
+    if not store:
+        state = runs.get(run_id)
+        if state is None:
+            raise HTTPException(404, "运行不存在")
+        return state
+    owner_id = request.state.user["id"]
+    state = runs.get(run_id)
+    if state is not None:
+        if state.store is store and state.owner_id == owner_id:
+            return state
+        raise HTTPException(404, "运行不存在")
+    row = await asyncio.to_thread(store.owned_run, owner_id, run_id)
+    if row is None:
+        raise HTTPException(404, "运行不存在")
+    state = runs.get(run_id)
+    if state is not None and state.store is store and state.owner_id == owner_id:
+        return state
+    checkpoint, events = await asyncio.gather(
+        asyncio.to_thread(store.load_checkpoint, run_id),
+        asyncio.to_thread(store.load_events, run_id),
+    )
+    checkpoint = checkpoint or {}
+    state = RunState(row["task"], row["model_id"], role_models=checkpoint.get("role_models"),
+                     execution_mode=row["execution_mode"])
+    state.id, state.owner_id, state.store = run_id, owner_id, store
+    state.status = row["status"]
+    state.search_strategy = row["search_strategy"]
+    state.created_at, state.updated_at = row["created_at"], row["updated_at"]
+    state.search_sources = checkpoint.get("search_sources", [])
+    state.summary = row["summary"] or {
+        "plan": checkpoint.get("plan"),
+        "evidence": checkpoint.get("evidence", []),
+        "findings": checkpoint.get("adaptive_findings") or (checkpoint.get("analysis") or {}).get("findings", []),
+        "verifications": checkpoint.get("verifications", {}),
+        "resource_usage": checkpoint.get("resource_summary"),
+        "unresolved_gaps": checkpoint.get("unresolved_gaps", []),
+        "conflicts": checkpoint.get("conflicts", []),
+        "evidence_metrics": checkpoint.get("evidence_metrics", {}),
+    }
+    state.reports = await _run_reports(state, checkpoint if checkpoint.get("reports") else state.summary)
+    state.events, state.persisted_events = events, len(events)
+    for event in events:
+        if event.get("ts"):
+            state.timeline.consume(event)
+        if event.get("type") == "plan":
+            state.latest_plan = event.get("plan")
+    if state.status in FINAL and state.timeline.ended is None:
+        state.timeline.consume({"type": state.status, "ts": state.updated_at})
+    return state
+
+
 # ---------- 页面 ----------
 @app.get("/", response_class=HTMLResponse)
-async def index():
+async def index(request: Request):
+    if web_auth.store_for(request) and not request.state.user:
+        return RedirectResponse("/login", status_code=303)
     return (STATIC / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/login", response_class=HTMLResponse)
+@app.get("/register", response_class=HTMLResponse)
+async def login_page(request: Request):
+    if not web_auth.store_for(request) or request.state.user:
+        return RedirectResponse("/", status_code=303)
+    return (STATIC / "auth.html").read_text(encoding="utf-8")
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
@@ -404,40 +563,52 @@ app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
 # ---------- API ----------
 @app.get("/api/search-sources")
-async def list_search_sources():
-    return {"sources": search_sources.source_options()}
+async def list_search_sources(request: Request = None):
+    return {"sources": search_sources.source_options(free_only=bool(web_auth.store_for(request)))}
 
 
 @app.get("/api/health")
-async def health():
+async def health(request: Request = None):
+    store = web_auth.store_for(request)
+    if store:
+        if not await asyncio.to_thread(store.healthy):
+            return JSONResponse({"ok": False}, status_code=503)
+        if not getattr(request.state, "user", None):
+            return {"ok": True, "auth_enabled": True}
     return {
         "ok": True,
         "has_key": bool(config.chat_api_key()),
-        "default_model": config.resolve_model(),
+        "model_ready": bool(config.chat_api_key() and config.bailian_free_only_confirmed() and models.default_model_id()),
+        "auth_enabled": bool(store),
+        "default_model": models.default_model_id(),
+        "experiment_mode": config.EXPERIMENT_MODE,
         "model_provider": config.model_provider(),
     }
 
 
 @app.get("/api/models")
-async def list_models():
-    default = config.resolve_model()
+async def list_models(request: Request = None):
+    default = models.default_model_id()
     return {
         "default": default,
-        "sag_enabled": sag_evidence.settings(config) is not None,
+        "experiment_mode": config.EXPERIMENT_MODE,
+        "sag_enabled": not web_auth.store_for(request) and sag_evidence.settings(config) is not None,
         "role_defaults": models.role_defaults("quick"),
         "role_reasons": models.role_reasons("quick"),
         "role_profiles": {mode: models.role_defaults(mode) for mode in models.ROLE_PROFILES},
         "profile_reasons": {mode: models.role_reasons(mode) for mode in models.ROLE_PROFILES},
-        "sources": models.MODEL_SOURCES,
+        "sources": ([{"title": "AMD Radeon Cloud", "url": "https://developer.amd.com.cn/"}]
+                    if config.EXPERIMENT_MODE else models.MODEL_SOURCES),
         "models": [
             {
                 **m,
                 "available": model_unavailable(m['id']) is None,
                 "unavailable_reason": model_unavailable(m['id']),
+                "quota_expiry": QUOTA_EXPIRY[m["id"]].isoformat() if m["id"] in QUOTA_EXPIRY else None,
                 "is_default": m["id"] == default,
                 "tier_rank": models.TIER_ORDER.get(m["tier"], 9),
             }
-            for m in models.MODELS
+            for m in models.catalog()
         ],
     }
 
@@ -451,7 +622,7 @@ async def model_recommendation(task: str = "", execution_mode: Literal["auto", "
 
 
 class RunRequest(BaseModel):
-    task: str
+    task: str = Field(max_length=6000)
     model_id: Optional[str] = None
     auto_confirm: bool = False
     role_models: Optional[dict] = None
@@ -460,15 +631,9 @@ class RunRequest(BaseModel):
 
 
 def model_unavailable(model_id):
-    try:
-        data=json.loads((config.OUTPUT_DIR/'acceptance_models.json').read_text(encoding='utf-8'))
-        if not isinstance(data,dict) or time.time()-data['tested_at']>3600:return None
-        if data.get('account_fingerprint')!=hashlib.sha256(config.DASHSCOPE_API_KEY.encode()).hexdigest():return None
-        row=next((m for m in data['models'] if m['id']==model_id),{})
-        if not row.get('ok',True) and '403' in row.get('error','') and 'quota' in row.get('error','').lower():
-            return '当前账户免费额度耗尽（403），请在账户条件变更后重新测试；未自动启用付费'
-    except (OSError,ValueError,TypeError,KeyError):pass
-    return None
+    if config.EXPERIMENT_MODE:
+        return "Radeon 实验模型已暂停对外调用。"
+    return config.bailian_unavailable(model_id)
 
 
 def validated_roles(overrides, mode="standard"):
@@ -483,27 +648,58 @@ def validated_roles(overrides, mode="standard"):
 
 
 @app.post("/api/runs")
-async def create_run(req: RunRequest):
+async def create_run(req: RunRequest, request: Request = None):
     task = (req.task or "").strip()
     if not task:
         raise HTTPException(status_code=400, detail="任务不能为空")
-    model_id = config.resolve_model(req.model_id)
-    if not models.get_model(model_id):
-        raise HTTPException(status_code=400, detail=f"未知模型：{model_id}")
+    try:
+        model_id = config.resolve_model(req.model_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     state = RunState(task, model_id, auto_confirm=req.auto_confirm,
                      role_models=validated_roles(req.role_models, choose_policy(task, req.execution_mode).mode), execution_mode=req.execution_mode)
     state.role_overrides = req.role_models
     state.ensure_future()
     state.search_strategy = req.search_strategy
-    _add_run(state)
+    store = web_auth.store_for(request)
+    if store:
+        require_model_service()
+        state.id = uuid.uuid4().hex
+        state.store = store
+        state.owner_id = request.state.user["id"]
+        async with request.app.state.create_lock:
+            check_user_capacity(state.owner_id)
+            await web_auth.use_limit(store, "run", state.owner_id, 86400,
+                                     request.app.state.online_settings.max_daily_runs, "今日研究任务次数已达上限。")
+            _add_run(state)
+            try:
+                await asyncio.to_thread(store.create_run, state.owner_id, state.to_summary())
+            except BaseException:
+                runs.pop(state.id, None)
+                raise
+    else:
+        _add_run(state)
     state.task_obj = asyncio.create_task(_run_task(state))
-    config.logger.info(f"[{state.id}] 创建新任务: {task[:40]}")
+    config.logger.info("[%s] 创建新任务", state.id)
     return {"run_id": state.id, "model_id": model_id}
+
+
+def require_model_service():
+    if not config.chat_api_key() or not config.bailian_free_only_confirmed():
+        raise HTTPException(503, "模型服务尚未启用。请配置百炼密钥并确认免费额度用完即停已开启。")
+    if not models.default_model_id():
+        raise HTTPException(503, "当前没有可用的免费额度模型。")
+
+
+def check_user_capacity(owner_id):
+    if sum(state.owner_id == owner_id and state.status not in FINAL for state in runs.values()) >= 2:
+        raise HTTPException(429, "已有两项研究任务在执行或等待确认。")
 
 
 @app.get('/api/comparison')
 async def get_comparison():
-    path=config.OUTPUT_DIR/'comparison/latest.json'
+    output_dir = config.ROOT / 'outputs' if config.EXPERIMENT_MODE else config.OUTPUT_DIR
+    path=output_dir/'comparison/latest.json'
     if not path.is_file():
         raise HTTPException(404,'请先运行 python scripts/compare_search_strategies.py；不调用真实模型或搜索。')
     try:return json.loads(await asyncio.to_thread(path.read_text,encoding='utf-8'))
@@ -516,14 +712,22 @@ class ResumeRequest(BaseModel):
 
 
 @app.post("/api/runs/{run_id}/resume")
-async def resume_run(run_id: str, req: ResumeRequest | None = None):
+async def resume_run(run_id: str, req: ResumeRequest | None = None, request: Request = None):
     """从中断/失败的检查点恢复执行"""
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+    state = await _get_run_state(run_id, request)
     if state.status not in {"error", "cancelled"} or (state.task_obj and not state.task_obj.done()):
         raise HTTPException(status_code=409, detail="仅可恢复已停止的失败或取消任务；等待选择渠道的任务请先完成选择")
-    checkpoint = pipeline.load_checkpoint(run_id)
+    if state.store:
+        require_model_service()
+        checkpoint = await asyncio.to_thread(state.store.load_checkpoint, run_id)
+        current = runs.get(run_id)
+        if current and (current.status not in {"error", "cancelled"} or (current.task_obj and not current.task_obj.done())):
+            raise HTTPException(409, "该任务正在恢复或已完成。")
+        if current:
+            state = current
+        check_user_capacity(state.owner_id)
+    else:
+        checkpoint = pipeline.load_checkpoint(run_id)
     if not checkpoint:
         raise HTTPException(status_code=409, detail="检查点不存在或损坏，请新建任务；不会自动从头重跑")
     if checkpoint.get("model_provider", "bailian") != config.model_provider():
@@ -540,6 +744,8 @@ async def resume_run(run_id: str, req: ResumeRequest | None = None):
         state.role_overrides = state.role_models
     else:
         state.role_overrides = None
+    if state.store and run_id not in runs:
+        _add_run(state)
     state.pending_gate = None
     state.pending_sources = None
     for future in (state.confirm_future, state.gate_future, state.sources_future):
@@ -556,20 +762,30 @@ async def resume_run(run_id: str, req: ResumeRequest | None = None):
 
 
 @app.get("/api/runs")
-async def list_runs():
+async def list_runs(request: Request = None):
+    store = web_auth.store_for(request)
+    if store:
+        owner_id = request.state.user["id"]
+        history = await asyncio.to_thread(store.list_runs, owner_id)
+        live = {state.id: state.to_summary() for state in runs.values()
+                if state.store is store and state.owner_id == owner_id}
+        return {"runs": [live.get(row["id"], row) for row in history]}
     return {"runs": [s.to_summary() for s in sorted(runs.values(), key=lambda s: s.created_at, reverse=True)]}
 
 
 @app.get("/api/runs/{run_id}")
-async def get_run(run_id: str):
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
-    return state.to_detail()
+async def get_run(run_id: str, request: Request = None):
+    state = await _get_run_state(run_id, request)
+    checkpoint = None
+    if state.store and state.status in {"error", "cancelled"}:
+        checkpoint = await asyncio.to_thread(state.store.load_checkpoint, state.id)
+    return state.to_detail(checkpoint)
 
 
 @app.get("/api/runs/{run_id}/sag-evidence/{evidence_id}")
-async def get_sag_evidence(run_id: str, evidence_id: str):
+async def get_sag_evidence(run_id: str, evidence_id: str, request: Request = None):
+    if web_auth.store_for(request):
+        raise HTTPException(404, "线上模式不访问本机资料。")
     if run_id in runs:
         checkpoint = await asyncio.to_thread(pipeline.load_checkpoint, run_id)
         suffix = f"/api/runs/{run_id}/sag-evidence/{evidence_id}"
@@ -607,13 +823,17 @@ async def _sag_report(run_id, report_type):
 
 
 @app.get("/api/runs/{run_id}/sag-import")
-async def preview_sag_import(run_id: str, report_type: str):
+async def preview_sag_import(run_id: str, report_type: str, request: Request = None):
+    if web_auth.store_for(request):
+        raise HTTPException(404, "线上模式不访问本机资料。")
     _, _, version, sections = await _sag_report(run_id, report_type)
     return {"report_version": version, "sections": sections}
 
 
 @app.post("/api/runs/{run_id}/sag-import")
-async def import_to_sag(run_id: str, req: SagImportRequest):
+async def import_to_sag(run_id: str, req: SagImportRequest, request: Request = None):
+    if web_auth.store_for(request):
+        raise HTTPException(404, "线上模式不访问本机资料。")
     index, target, version, sections = await _sag_report(run_id, req.report_type)
     if version != req.report_version:
         raise HTTPException(409, "报告已更新，请重新打开后选择片段。")
@@ -646,16 +866,16 @@ class SourcesRequest(BaseModel):
 
 
 @app.post("/api/runs/{run_id}/sources")
-async def select_run_sources(run_id: str, req: SourcesRequest):
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+async def select_run_sources(run_id: str, req: SourcesRequest, request: Request = None):
+    state = await _get_run_state(run_id, request)
     if state.status != "awaiting_sources" or not state.pending_sources or not state.sources_future:
         raise HTTPException(status_code=409, detail="当前没有等待搜索渠道选择")
     if req.request_id != state.pending_sources["request_id"]:
         raise HTTPException(status_code=409, detail="渠道选择已更新，请刷新当前任务")
     try:
         selected = search_sources.validate_sources(req.sources)
+        if state.store and "bailian" in selected:
+            raise ValueError("线上模式仅开放公开检索渠道。")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if state.sources_future.done():
@@ -665,16 +885,14 @@ async def select_run_sources(run_id: str, req: SourcesRequest):
 
 
 @app.post("/api/runs/{run_id}/confirm")
-async def confirm_run(run_id: str, req: ConfirmRequest):
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+async def confirm_run(run_id: str, req: ConfirmRequest, request: Request = None):
+    state = await _get_run_state(run_id, request)
     if state.status != "awaiting_confirm" or not state.confirm_future:
         raise HTTPException(status_code=409, detail="当前没有待确认计划")
     if state.confirm_future.done():
         return {"ok": True, "already": True}
     state.confirm_future.set_result((req.feedback or "").strip())
-    config.logger.info(f"[{run_id}] 用户完成计划确认，反馈: {req.feedback}")
+    config.logger.info("[%s] 用户完成计划确认", run_id)
     return {"ok": True}
 
 
@@ -684,11 +902,9 @@ class GateRequest(BaseModel):
 
 
 @app.post("/api/runs/{run_id}/gate")
-async def gate_run(run_id: str, req: GateRequest):
+async def gate_run(run_id: str, req: GateRequest, request: Request = None):
     """用户对核查未通过的关卡做出决策：打回重做（redo）或继续执行（continue）。"""
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+    state = await _get_run_state(run_id, request)
     if state.status != "awaiting_gate" or not state.pending_gate:
         raise HTTPException(status_code=409, detail="当前没有等待决策的核查关卡")
     if state.gate_future is None:
@@ -697,15 +913,13 @@ async def gate_run(run_id: str, req: GateRequest):
         return {"ok": True, "already": True}
     decision = "redo" if req.decision == "redo" else "continue"
     state.gate_future.set_result({"decision": decision, "feedback": (req.feedback or "").strip()})
-    config.logger.info(f"[{run_id}] 用户关卡决策: {decision}（阶段 {state.pending_gate.get('stage')}），反馈: {req.feedback}")
+    config.logger.info("[%s] 用户关卡决策: %s", run_id, decision)
     return {"ok": True}
 
 
 @app.post("/api/runs/{run_id}/cancel")
-async def cancel_run(run_id: str):
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+async def cancel_run(run_id: str, request: Request = None):
+    state = await _get_run_state(run_id, request)
     if state.status in FINAL:
         raise HTTPException(status_code=409,detail='任务已停止，不能再次取消')
     config.logger.info(f"[{run_id}] 收到终止任务请求")
@@ -729,9 +943,8 @@ async def cancel_run(run_id: str):
 
 @app.get("/api/runs/{run_id}/events")
 async def run_events(run_id: str, request: Request, after: int = -1):
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+    state = await _get_run_state(run_id, request)
+    digest = web_auth.session_digest(request) if state.store else None
 
     async def gen():
         last = max(-1, after)
@@ -754,6 +967,8 @@ async def run_events(run_id: str, request: Request, after: int = -1):
                     new = state.events[idx:]
                     idx = len(state.events)
                     finished = state.status in FINAL and not new
+                if state.store and not await asyncio.to_thread(state.store.session_user, digest):
+                    break
                 for i, ev in enumerate(new):
                     eid = idx - len(new) + i
                     yield f"id: {eid}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n"
@@ -779,18 +994,18 @@ async def run_events(run_id: str, request: Request, after: int = -1):
 
 
 @app.get("/api/runs/{run_id}/report.md")
-async def download_report_md(run_id: str):
+async def download_report_md(run_id: str, request: Request = None):
     """合并该任务全部报告为单一 Markdown 文件，以附件形式触发浏览器下载。"""
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+    state = await _get_run_state(run_id, request)
+    if state.store and state.status != "done":
+        raise HTTPException(409, "研究完成后可下载报告。")
     if not state.reports:
         raise HTTPException(status_code=404, detail="报告尚未生成")
 
     parts = []
     for i, r in enumerate(state.reports, 1):
         md = (r.get("markdown") or "").strip()
-        if not md:
+        if not md and not state.store:
             md = _read_report(r.get("path", ""))
         if md:
             parts.append(f"# {r.get('type') or f'报告{i}'}\n\n{md}")
@@ -811,13 +1026,11 @@ async def download_report_md(run_id: str):
 
 
 @app.get('/api/runs/{run_id}/report-chat')
-async def get_report_chat(run_id: str, report_type: str):
-    state = runs.get(run_id)
-    if state is None:
-        raise HTTPException(404, '运行不存在')
+async def get_report_chat(run_id: str, report_type: str, request: Request = None):
+    state = await _get_run_state(run_id, request)
     try:
         text = await asyncio.to_thread(report_chat.report_text, state, report_type)
-        return await report_chat.history(run_id, report_type, text)
+        return await report_chat.history(run_id, report_type, text, store=state.store)
     except report_chat.ChatError as exc:
         raise HTTPException(exc.status, exc.message) from None
     except OSError:
@@ -825,17 +1038,19 @@ async def get_report_chat(run_id: str, report_type: str):
 
 
 @app.post('/api/runs/{run_id}/report-chat')
-async def ask_report_chat(run_id: str, req: report_chat.Question):
-    state = runs.get(run_id)
-    if state is None:
-        raise HTTPException(404, '运行不存在')
+async def ask_report_chat(run_id: str, req: report_chat.Question, request: Request = None):
+    state = await _get_run_state(run_id, request)
     if not models.get_model(req.model_id):
         raise HTTPException(400, '所选问答模型不在可用列表中。')
     if model_unavailable(req.model_id):
         raise HTTPException(400, '该模型当前额度不可用，请更换模型。')
+    if state.store:
+        require_model_service()
+        await web_auth.use_limit(state.store, "chat", state.owner_id, 86400,
+                                 request.app.state.online_settings.max_daily_questions, "今日报告追问次数已达上限。")
     try:
         text = await asyncio.to_thread(report_chat.report_text, state, req.report_type)
-        return await report_chat.ask(run_id, req.report_type, text, req)
+        return await report_chat.ask(run_id, req.report_type, text, req, store=state.store)
     except report_chat.ChatError as exc:
         raise HTTPException(exc.status, exc.message) from None
     except OSError:
@@ -843,10 +1058,8 @@ async def ask_report_chat(run_id: str, req: report_chat.Question):
 
 
 @app.get("/api/reports/{run_id}/{filename}")
-async def get_report_file(run_id: str, filename: str):
-    state = runs.get(run_id)
-    if not state:
-        raise HTTPException(status_code=404, detail="运行不存在")
+async def get_report_file(run_id: str, filename: str, request: Request = None):
+    state = await _get_run_state(run_id, request)
 
     # 安全检查：只允许读取该任务自产、且位于报告目录内的文件，杜绝路径遍历与越权读取
     if (
@@ -859,6 +1072,13 @@ async def get_report_file(run_id: str, filename: str):
     ):
         raise HTTPException(status_code=404, detail="文件不存在")
 
+    if state.store:
+        if state.status != "done" or not any(Path(r["path"]).name == filename for r in state.reports if r.get("path")):
+            raise HTTPException(404, "报告文件不存在")
+        content = await asyncio.to_thread(state.store.read_artifact, run_id, "reports", filename)
+        if content is None:
+            raise HTTPException(404, "报告文件不存在")
+        return JSONResponse({"filename": filename, "content": content})
     p = (config.REPORT_DIR / filename).resolve()
     if config.REPORT_DIR.resolve() not in p.parents or not p.is_file():
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -870,8 +1090,9 @@ async def get_report_file(run_id: str, filename: str):
 
 
 def main():
-    config.check_key()
-    _restore_history_from_disk()
+    if not web_auth.online_enabled():
+        config.check_key()
+        _restore_history_from_disk()
     config.logger.info(f"OSINT 多智能体服务启动：http://{config.HOST}:{config.PORT}")
     uvicorn.run(app, host=config.HOST, port=config.PORT, log_level="info")
 

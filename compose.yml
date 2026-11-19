@@ -1,0 +1,42 @@
+name: osint-mysql
+services:
+  mysql:
+    image: mysql:8.0.44
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${OSINT_DB_ROOT_PASSWORD:?set OSINT_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: osint
+      MYSQL_USER: osint
+      MYSQL_PASSWORD: ${OSINT_DB_PASSWORD:?set OSINT_DB_PASSWORD}
+    volumes:
+      - osint_mysql_data:/var/lib/mysql
+      - ./deploy/mysql/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u osint osint -e 'SELECT version FROM osint_schema_versions WHERE version = 1'"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 20s
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${OSINT_WEB_PORT:-8765}:8765"
+    environment:
+      OSINT_STORAGE: mysql
+      OSINT_PUBLIC_ORIGIN: http://127.0.0.1:${OSINT_WEB_PORT:-8765}
+      OSINT_SECURE_COOKIE: "0"
+      OSINT_DB_HOST: mysql
+      OSINT_DB_NAME: osint
+      OSINT_DB_USER: osint
+      OSINT_DB_PASSWORD: ${OSINT_DB_PASSWORD:?set OSINT_DB_PASSWORD}
+      OSINT_REGISTRATION_ENABLED: ${OSINT_REGISTRATION_ENABLED:-1}
+      OSINT_SIGNUP_CODE: ${OSINT_SIGNUP_CODE:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      OSINT_BAILIAN_FREE_ONLY_CONFIRMED: ${OSINT_BAILIAN_FREE_ONLY_CONFIRMED:-0}
+      OSINT_DISABLED_MODELS: ${OSINT_DISABLED_MODELS:-}
+volumes:
+  osint_mysql_data:

@@ -119,6 +119,23 @@ class Fixture(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.checkpoint()['status'],'done')
         self.assertEqual(len(summary['reports']),1)
 
+    async def test_radeon_experiment_keeps_model_and_provenance_after_resume(self):
+        with patch.object(config, "EXPERIMENT_MODE", True):
+            self.fail_schema = QuickSynthesis
+            with self.assertRaises(ConnectionError):
+                await self.run_task(role_models_override={"planner": "qwen3.8-flash"})
+            checkpoint = self.checkpoint()
+            self.assertEqual(checkpoint["model_provider"], "amd-radeon")
+            self.assertEqual(checkpoint["model_id"], config.RADEON_MODEL)
+            self.assertEqual(set(checkpoint["role_models"].values()), {config.RADEON_MODEL})
+            previous_searches = list(self.searches)
+            self.fail_schema = None
+            summary = await self.run_task(resume=True)
+            self.assertEqual(summary["model_provider"], "amd-radeon")
+            self.assertEqual(self.searches, previous_searches)
+            self.assertTrue(Path(summary["reports"][0]).is_file())
+            self.assertTrue(all(call.args[0] == config.RADEON_MODEL for call in pipeline.build_agent.call_args_list))
+
     async def test_semantic_route_upgrade_and_resume(self):
         from research_routing import Route, RoutedPlan
         async def produce(agent, prompt, schema, **kwargs):
@@ -131,7 +148,8 @@ class Fixture(unittest.IsolatedAsyncioTestCase):
         async def stop(_):
             raise ConnectionError("interrupted while confirming")
 
-        with patch("pipeline_execution.classify", new=AsyncMock(
+        with patch.object(config, "EXPERIMENT_MODE", True), \
+                patch("pipeline_execution.classify", new=AsyncMock(
                     return_value=Route(mode="quick", reason="先按简明预算"))) as route, \
                 patch.object(pipeline, "run_json", side_effect=produce):
             with self.assertRaises(ConnectionError):
@@ -165,13 +183,15 @@ class Fixture(unittest.IsolatedAsyncioTestCase):
             result = await classify(pipeline, "测试", self.emit, AsyncMock())
         self.assertEqual(result.mode, "quick")
         self.assertEqual(build.call_args.args[0], models.ROLE_PROFILES["quick"]["planner"])
+        self.assertNotEqual(build.call_args.args[0], config.RADEON_MODEL)
 
     async def test_sag_only_fills_gap_and_saved_evidence_survives_resume(self):
         import sag_evidence
         hit = EvidenceItem(subquestion="测试问题", title="本地资料 · notice.md 第 4–4 行",
                            content="测试问题可参考论文中解释的另一种口径。",
                            source="http://127.0.0.1:8766/api/runs/test/sag-evidence/example", provider="sag")
-        with patch.object(sag_evidence, "settings", return_value=(self.root, self.root)), \
+        with patch.object(config, "EXPERIMENT_MODE", True), \
+                patch.object(sag_evidence, "settings", return_value=(self.root, self.root)), \
                 patch.object(sag_evidence, "search", new=AsyncMock(return_value=[hit])) as sag:
             self.fail_schema = QuickSynthesis
             with self.assertRaises(ConnectionError):
@@ -340,7 +360,7 @@ class BudgetTests(unittest.IsolatedAsyncioTestCase):
         from agents import build_agent
         self.assertEqual(POLICIES['deep'].timeout_for('reasoner'),360)
         self.assertEqual(POLICIES['standard'].timeout_for('reasoner'),120)
-        agent=build_agent('deepseek-v4-pro-0813','test','推理官',role='reasoner',mode='deep')
+        agent=build_agent(models.role_defaults('deep')['reasoner'],'test','推理官',role='reasoner',mode='deep')
         self.assertEqual(agent.client.client.timeout,370)
         await agent.client.client.close()
     async def test_deadline_cancels_underlying_work(self):

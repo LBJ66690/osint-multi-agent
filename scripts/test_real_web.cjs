@@ -23,8 +23,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),path
   await page.locator('#report-ready').waitFor({state:'visible'});await page.locator('#adaptive-decisions').waitFor({state:'visible'});assert.match(await page.locator('#adaptive-decision-list').textContent(),/补搜|搜索/);await page.screenshot({path:path.resolve(__dirname,'../outputs/comparison/adaptive-real-web.png'),fullPage:true});assert.deepEqual(errors,[]);
   const runDetail=await page.evaluate(async()=>{const runs=await(await fetch('/api/runs')).json();return(await(await fetch('/api/runs/'+runs.runs[0].id)).json());});
   await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
-  await page.locator('#report-chat-model').selectOption('kimi-k3');await page.locator('#report-chat-question').fill('这份报告的依据是什么？');await page.locator('#report-chat-send').click();
-  await page.locator('.chat-assistant:not(.chat-waiting)').waitFor({state:'visible'});assert.match(await page.locator('#report-chat-messages').textContent(),/kimi-k3/);
+  await page.locator('#report-chat-model').selectOption('kimi-k3.1-pro');await page.locator('#report-chat-question').fill('这份报告的依据是什么？');await page.locator('#report-chat-send').click();
+  await page.locator('.chat-assistant:not(.chat-waiting)').waitFor({state:'visible'});assert.match(await page.locator('#report-chat-messages').textContent(),/kimi-k3\.1-pro/);
   await page.locator('#report-chat-close').click();await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);assert.equal(await page.locator('.chat-user').count(),1);
   await page.locator('#report-chat-close').click();
   const unchanged=await page.evaluate(async rid=>(await(await fetch('/api/runs/'+rid)).json()),runDetail.id);

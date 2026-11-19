@@ -40,7 +40,7 @@ def report_text(state, report_type):
     if selected is None:
         raise ChatError(404, '未找到所选报告，请重新打开对应报告。')
     text = selected.get('markdown') or ''
-    if not text and selected.get('path'):
+    if not text and selected.get('path') and not getattr(state, "store", None):
         path = Path(selected['path']).resolve()
         if config.REPORT_DIR.resolve() not in path.parents or not path.is_file():
             raise ChatError(404, '报告文件不可读取。')
@@ -60,31 +60,35 @@ def identity(run_id, report_type, text):
     return version, key
 
 
-def _load(run_id, report_type, text):
+def _load(run_id, report_type, text, store=None):
     version, key = identity(run_id, report_type, text)
     path = config.OUTPUT_DIR / 'report_chats' / f'{key}.json'
     data = dict(report_type=report_type, report_version=version, turns=[])
-    if path.exists():
+    if store or path.exists():
         try:
-            if path.stat().st_size > 4 * 1024 * 1024:
-                raise ValueError('oversized')
-            saved = json.loads(path.read_text(encoding='utf-8'))
-            if (saved.get('report_version') != version or saved.get('report_type') != report_type
-                    or not isinstance(saved.get('turns'), list) or len(saved['turns']) > MAX_TURNS):
-                raise ValueError('invalid history')
-            if any(not isinstance(t, dict) or not all(isinstance(t.get(k), str)
-                    for k in ['id', 'question', 'answer', 'model_id']) for t in saved['turns']):
-                raise ValueError('invalid turn')
-            data = saved
+            if store:
+                saved = store.load_chat(run_id, key)
+            else:
+                if path.stat().st_size > 4 * 1024 * 1024:
+                    raise ValueError('oversized')
+                saved = json.loads(path.read_text(encoding='utf-8'))
+            if saved is not None:
+                if (saved.get('report_version') != version or saved.get('report_type') != report_type
+                        or not isinstance(saved.get('turns'), list) or len(saved['turns']) > MAX_TURNS):
+                    raise ValueError('invalid history')
+                if any(not isinstance(t, dict) or not all(isinstance(t.get(k), str)
+                        for k in ['id', 'question', 'answer', 'model_id']) for t in saved['turns']):
+                    raise ValueError('invalid turn')
+                data = saved
         except (OSError, ValueError, TypeError, AttributeError):
-            raise ChatError(409, '该报告的对话记录无法读取，原文件已保留；请联系维护者检查。') from None
+            raise ChatError(409, '该报告的对话记录无法读取，请联系维护者检查。') from None
     data['limits'] = dict(question_chars=4000, report_chars=MAX_REPORT_CHARS,
                           history_turns=HISTORY_TURNS, total_turns=MAX_TURNS)
     return data, path, key
 
 
-async def history(run_id, report_type, text):
-    data, _, _ = await asyncio.to_thread(_load, run_id, report_type, text)
+async def history(run_id, report_type, text, store=None):
+    data, _, _ = await asyncio.to_thread(_load, run_id, report_type, text, store)
     return config.redact_data(data)
 
 
@@ -136,7 +140,7 @@ def _save(path, data):
             temporary.unlink()
 
 
-async def ask(run_id, report_type, text, req):
+async def ask(run_id, report_type, text, req, store=None):
     version, key = identity(run_id, report_type, text)
     if req.report_version != version:
         raise ChatError(409, '报告版本已变化，请重新打开对话后提问。')
@@ -147,7 +151,7 @@ async def ask(run_id, report_type, text, req):
         raise ChatError(429, '已有问答正在处理，请等待后再发送；不会重复提交。')
     _inflight.add(key)
     try:
-        data, path, _ = await asyncio.to_thread(_load, run_id, report_type, text)
+        data, path, _ = await asyncio.to_thread(_load, run_id, report_type, text, store)
         previous = next((t for t in data['turns'] if t['id'] == req.request_id), None)
         if previous:
             if previous['question'] != question or previous['model_id'] != req.model_id:
@@ -175,7 +179,9 @@ async def ask(run_id, report_type, text, req):
         data['turns'].append(dict(id=req.request_id, model_id=req.model_id, question=question, answer=answer,
             created_at=datetime.now(timezone.utc).isoformat(), usage=usage, context_turns=context_turns))
         try:
-            writer = asyncio.create_task(asyncio.to_thread(_save, path, data))
+            write = (asyncio.to_thread(store.save_chat, run_id, key, config.redact_data(data))
+                     if store else asyncio.to_thread(_save, path, data))
+            writer = asyncio.create_task(write)
             try:
                 await asyncio.shield(writer)
             except asyncio.CancelledError:

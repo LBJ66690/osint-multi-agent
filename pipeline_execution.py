@@ -29,9 +29,12 @@ from resource_usage import consume_event, snapshot
 
 
 async def execute(p, task, model_id, emit, confirm, run_id="", role_models_override=None,
-                  resume=False, gate=None, select_sources=None, execution_mode="auto", search_strategy="legacy"):
+                  resume=False, gate=None, select_sources=None, execution_mode="auto", search_strategy="legacy",
+                  store=None):
     provider = p.config.model_provider()
-    ckpt = p.load_checkpoint(run_id) if resume else None
+    ckpt = None
+    if resume:
+        ckpt = (await asyncio.to_thread(store.load_checkpoint, run_id) if store else p.load_checkpoint(run_id))
     if resume and not ckpt:
         raise RuntimeError("检查点不存在或损坏，无法安全续跑；请新建任务。")
     if resume:
@@ -40,23 +43,34 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
             raise ValueError("恢复任务与检查点的研究问题不一致，请新建任务。")
         if ckpt.get("model_provider", "bailian") != provider:
             raise ValueError("请在创建该任务的模型服务模式下恢复检查点。")
+    if p.config.EXPERIMENT_MODE:
+        model_id = p.config.RADEON_MODEL
+        role_models_override = None
     ckpt = ckpt or {"run_id": run_id, "task": task, "model_id": model_id,
                     "completed_stages": [], "reports": []}
     ckpt["model_provider"] = provider
     if not resume and execution_mode == "auto":
         ckpt["routing_pending"] = True
-    sag_settings = sag_evidence.settings(p.config)
+    sag_settings = None if store else sag_evidence.settings(p.config)
     search_strategy = ckpt.get('search_strategy','legacy') if resume else search_strategy
     if search_strategy not in {'legacy','adaptive'}:raise ValueError('未知检索策略')
     ckpt['search_strategy']=search_strategy
     adaptive=search_strategy=='adaptive'
     # 旧检查点没有难度策略，延续既有方案与已完成产出，不重做历史阶段。
     policy = choose_policy(task, ckpt.get("execution_mode", execution_mode))
-    original_roles = dict(ckpt.get("role_models") or models.role_defaults(policy.mode))
-    roles = dict(original_roles)
+    defaults = models.role_defaults(policy.mode)
+    original_roles = dict(ckpt.get("role_models") or defaults)
+    def model_enabled(model):
+        return models.get_model(model) and (p.config.EXPERIMENT_MODE or not p.config.bailian_unavailable(model))
+
+    roles = {role: original_roles[role] if model_enabled(original_roles.get(role)) else default
+             for role, default in defaults.items()}
     overrides = {k: v for k, v in (role_models_override or {}).items() if k in models.ROLE_DEFAULTS and v}
     if not resume or role_models_override is not None:
         ckpt["role_overrides"] = overrides
+    else:
+        ckpt["role_overrides"] = {role: model for role, model in (ckpt.get("role_overrides") or {}).items()
+                                  if role in defaults and model_enabled(model)}
     roles.update(overrides)
     ckpt.update(schema_version=2, role_models=roles, execution_mode=policy.mode)
     ckpt["attempt"] = ckpt.get("attempt", 0) + 1
@@ -65,7 +79,23 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
     write_lock = asyncio.Lock()
     async def save():
         async with write_lock:
-            await p.save_checkpoint(run_id, ckpt)
+            if store:
+                await asyncio.to_thread(store.save_checkpoint, run_id, p.config.redact_data(ckpt))
+            else:
+                await p.save_checkpoint(run_id, ckpt)
+
+    async def write_artifact(path, text):
+        if store:
+            await asyncio.to_thread(store.save_artifact, run_id, path.parent.name, path.name, p.config.redact_secret(text))
+        else:
+            await p._awrite(path, text)
+
+    async def read_report(path):
+        if store:
+            return await asyncio.to_thread(store.read_artifact, run_id, "reports", path.name)
+        if path.is_file() and p.config.REPORT_DIR.resolve() in path.resolve().parents:
+            return await asyncio.to_thread(path.read_text, encoding="utf-8")
+        return None
     original_emit = emit
     old_usage_missing = resume and not ckpt.get('resource_usage')
     resources = ckpt.setdefault('resource_usage', {})
@@ -211,7 +241,7 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
         ckpt['evidence_revision'] = ckpt.get('evidence_revision', 0) + 1
         refresh_context()
         await save()
-        await p._awrite(p.config.EVIDENCE_DIR/f"evidence_{run_id}.json", json.dumps(ckpt['evidence'],ensure_ascii=False,indent=2))
+        await write_artifact(p.config.EVIDENCE_DIR/f"evidence_{run_id}.json", json.dumps(ckpt['evidence'],ensure_ascii=False,indent=2))
         await emit({'type':'evidence', 'items':ckpt['evidence'], 'count':len(evidence)})
         await emit({'type':'evidence_quality', 'stage':stage_name, 'metrics':ckpt['evidence_metrics'], 'conflicts':ckpt['conflicts']})
         return True
@@ -339,7 +369,7 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
                 state.update(round=state["round"]+1, feedback="用户修改意见："+feedback)
                 await save()
             await complete("planning", "plan", plan)
-            await p._awrite(p.config.PLAN_DIR/f"plan_{run_id}.json", plan.model_dump_json(indent=2))
+            await write_artifact(p.config.PLAN_DIR/f"plan_{run_id}.json", plan.model_dump_json(indent=2))
 
         if "collecting" in completed:
             evidence = [EvidenceItem.model_validate(e) for e in ckpt["evidence"]]
@@ -347,11 +377,13 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
         else:
             if select_sources is None:
                 raise RuntimeError("请先选择搜索渠道")
-            options = search_sources.source_options()
+            options = search_sources.source_options(free_only=True) if store else search_sources.source_options()
             allowed_sources = {source["id"] for source in options}
             async with budget.human_wait():
                 selected = search_sources.validate_sources(await select_sources({"options": options,
                     "selected": [s for s in ckpt.get("search_sources", []) if s in allowed_sources], "goal": plan.goal}))
+            if any(source not in allowed_sources for source in selected):
+                raise ValueError("所选检索渠道在当前模式下未启用。")
             ckpt["search_sources"] = selected
             await save()
             await emit({"type": "sources_selected", "selected": selected})
@@ -434,7 +466,7 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
             if client is not None:
                 await client.aclose()
                 client = None
-            await p._awrite(p.config.EVIDENCE_DIR/f"evidence_{run_id}.json", json.dumps(ckpt["evidence"],ensure_ascii=False,indent=2))
+            await write_artifact(p.config.EVIDENCE_DIR/f"evidence_{run_id}.json", json.dumps(ckpt["evidence"],ensure_ascii=False,indent=2))
         await emit({"type":"evidence", "items":[e.model_dump() for e in evidence], "count":len(evidence)})
         def refresh_context():
             from evidence_quality import curate, assess, conflicts
@@ -510,9 +542,11 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
         report_state = ckpt.setdefault("report_state", {})
         for record in ckpt.get("report_records", []):
             rt, path = record["type"], Path(record["path"])
-            if rt not in report_state and rt in plan.report_types and path.is_file() and p.config.REPORT_DIR.resolve() in path.resolve().parents:
-                raw = path.read_text(encoding="utf-8").split("\n\n---\n\n## 附：事实核查",1)[0]
-                report_state[rt] = {"body":raw, "path":str(path), "round":0,"feedback":""}
+            if rt not in report_state and rt in plan.report_types:
+                report = await read_report(path)
+                if report is not None:
+                    raw = report.split("\n\n---\n\n## 附：事实核查",1)[0]
+                    report_state[rt] = {"body":raw, "path":path.as_posix(), "round":0,"feedback":""}
         for idx, rt in enumerate(plan.report_types):
             row = report_state.setdefault(rt, {"round":0,"feedback":""})
             while True:
@@ -523,22 +557,22 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
                               f"篇幅不超过约 {policy.report_words} 字，先直接给出答案，避免重复。\n"
                               f"核心发现：{json.dumps(findings,ensure_ascii=False)}\n{reference}\n修订意见：{row['feedback']}")
                     safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", rt).strip(" .")[:60] or "报告"
-                    path = p.config.REPORT_DIR/f"{safe}_{run_id}_{idx+1}.md"
+                    path = (Path("reports") if store else p.config.REPORT_DIR) / f"{safe}_{run_id}_{idx+1}.md"
                     async def draft(text):
-                        await p._awrite(path.with_suffix('.partial.md'), text)
+                        await write_artifact(path.with_suffix('.partial.md'), text)
                     async def write_report():
                         return await p.generate_report(agent("reporter"),prompt,rt,emit,draft,p._extract_usage,
                                                        attempts=1,timeout=policy.report_seconds,total_timeout=policy.report_seconds,operation=f"report:{rt}:produce:{row['round']}")
                     row['body'] = await ops.get(f"report:{rt}:produce:{row['round']}",
                         [prompt, roles['reporter'], instructions_for('reporter'), policy.output_tokens],write_report,policy.report_seconds,"reporting")
-                    row['path'] = str(path)
+                    row['path'] = path.as_posix() if store else str(path)
                     await save()
                 path = Path(row['path'])
-                await p._awrite(path, row['body'])
+                await write_artifact(path, row['body'])
                 ckpt['reports'] = [r['path'] for r in report_state.values() if r.get('body')]
                 ckpt['report_records'] = [{'type':t,'path':r['path']} for t,r in report_state.items() if r.get('body')]
                 await save()
-                await emit({"type":"report","report_type":rt,"path":str(path),"markdown":row['body']})
+                await emit({"type":"report","report_type":rt,"path":row['path'],"markdown":row['body']})
                 await stage("verifying","running",f"核查官：检查【{rt}】的关键结论与引用")
                 check = await model(f"report:{rt}:check:{row['round']}","verifier",
                     p._gate_prompt("reporting",f"报告正文【{rt}】",row['body'],"用户目标、结论依据与相关证据",task+"\n结论与反证："+json.dumps(findings,ensure_ascii=False)+"\n"+reference),VerificationReport,"verifying")
@@ -562,8 +596,8 @@ async def execute(p, task, model_id, emit, confirm, run_id="", role_models_overr
             final = row['body'] + p._verification_appendix(rt, check)
             from adaptive_search import limitations
             final+=limitations(ckpt)
-            await p._awrite(path, final)
-            await emit({"type":"report","report_type":rt,"path":str(path),"markdown":final})
+            await write_artifact(path, final)
+            await emit({"type":"report","report_type":rt,"path":row['path'],"markdown":final})
         ckpt['resource_summary'] = snapshot(resources)
         ckpt['verifications'] = {rt:r['check'] for rt,r in report_state.items() if rt in plan.report_types and 'check' in r}
         await complete("reporting")

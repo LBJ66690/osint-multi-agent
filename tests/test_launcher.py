@@ -66,14 +66,18 @@ class LauncherTests(unittest.TestCase):
     def test_env_file_key_is_ignored_and_environment_key_not_inherited(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); (root/'config.py').write_bytes(Path(config.__file__).read_bytes())
-            (root/'.env').write_text('DASHSCOPE_API_KEY='+FAKE+'\nMODEL=example-model\n', encoding='utf-8')
+            (root/'bailian_models.py').write_bytes(Path(config.__file__).with_name('bailian_models.py').read_bytes())
+            (root/'.env').write_text('DASHSCOPE_API_KEY='+FAKE+'\nMODEL=qwen4-max\n', encoding='utf-8')
             env=dict(os.environ); env.pop('DASHSCOPE_API_KEY', None); env.pop('MODEL', None)
             code="import config,os,json;print(json.dumps([bool(config.DASHSCOPE_API_KEY),config.DEFAULT_MODEL,'DASHSCOPE_API_KEY' in os.environ]))"
             result=subprocess.run([sys.executable,'-B','-c',code],cwd=root,env=env,capture_output=True,text=True,check=True)
-            self.assertEqual(json.loads(result.stdout), [False, 'example-model', False])
+            self.assertEqual(json.loads(result.stdout), [False, 'qwen4-max', False])
             env['DASHSCOPE_API_KEY']=FAKE
             result=subprocess.run([sys.executable,'-B','-c',code],cwd=root,env=env,capture_output=True,text=True,check=True)
-            self.assertEqual(json.loads(result.stdout), [True, 'example-model', False])
+            self.assertEqual(json.loads(result.stdout), [True, 'qwen4-max', False])
+            env['MODEL'] = 'qwen3.8-max'
+            result=subprocess.run([sys.executable,'-B','-c',code],cwd=root,env=env,capture_output=True,text=True,check=True)
+            self.assertEqual(json.loads(result.stdout), [True, 'qwen3.8-flash', False])
 
     def test_redacts_logs_exceptions_reports_checkpoints_and_events(self):
         async def run(root):

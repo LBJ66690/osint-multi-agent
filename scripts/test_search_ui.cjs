@@ -19,7 +19,7 @@ const resumptions=[];
   if(url.pathname.startsWith('/static/'))return route.fulfill({contentType:url.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(url.pathname)),'utf8')});
   if(url.pathname==='/api/models')return json(modelConfig);
   if(url.pathname==='/api/model-recommendation'){const mode=url.searchParams.get('task')?.includes('是什么')?'quick':'standard';return json({mode,label:mode==='quick'?'简明解答':'标准研究',role_models:modelConfig.role_profiles[mode],reasons:modelConfig.profile_reasons[mode]});}
-  if(url.pathname==='/api/health')return json({has_key:true});if(url.pathname==='/api/models')return json({models:[{id:'qwen3.8-flash',label:'Qwen3.8 Flash'},{id:'deepseek-v4.1-flash',label:'DeepSeek Flash'},{id:'qwen3.8-27b',label:'Qwen3.8 27B'}],role_defaults:{planner:'qwen3.8-flash',collector:'deepseek-v4.1-flash',analyst:'deepseek-v4.1-flash',reasoner:'deepseek-v4.1-flash',reporter:'qwen3.8-27b',verifier:'qwen3.8-flash'},role_reasons:{planner:'快速规划，避免过度拆解'}});
+  if(url.pathname==='/api/health')return json({has_key:true});
   if(url.pathname==='/api/runs')return json({runs:[{...detail,report_count:0,created_at:new Date(started).toISOString()}]});
   if(url.pathname==='/api/runs/demo')return json(detail);
   if(url.pathname==='/api/runs/demo/sources'){submissions.push(route.request().postDataJSON());return json({ok:true});}
@@ -42,13 +42,13 @@ const resumptions=[];
   await page.locator('[data-atlas-node="reasoning"]').click();assert.match(await page.locator('#atlas-inspector').textContent(),/串联证据/);
   await page.locator('#topology-modal').press('Escape');assert.equal(await page.locator('#topology-modal:visible').count(),0);assert.equal(await page.locator('#btn-topology').evaluate(el=>el===document.activeElement),true);
   await page.locator('#btn-run').waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('#btn-run').disabled);
-  await page.waitForFunction(()=>document.querySelector('[data-role="planner"]').value==='qwen3.8-27b');
+  await page.waitForFunction(id=>document.querySelector('[data-role="planner"]').value===id,modelConfig.role_profiles.standard.planner);
   for(const mode of ['quick','standard','deep']){await page.locator('#execution-mode').selectOption(mode);for(const [role,id] of Object.entries(modelConfig.role_profiles[mode]))assert.equal(await page.locator(`[data-role="${role}"]`).inputValue(),id);}
   await page.locator('#execution-mode').selectOption('auto');await page.locator('#task-input').fill('大肥鱼是什么');await page.waitForFunction(()=>document.querySelector('[data-role="planner"]').value==='qwen3.8-flash');
   assert.equal(await page.locator('#role-grid select:disabled').count(),6);
   assert.equal(await page.locator('[data-role="planner"] option').evaluateAll(options=>options.filter(o=>o.hasAttribute('disabled')).length),modelConfig.models.filter(m=>m.available===false).length);
   await page.locator('#model-mode').selectOption('custom');assert.equal(await page.locator('#role-grid select:disabled').count(),0);
-  await page.locator('.advanced summary').click();await page.locator('[data-role="planner"]').selectOption('glm-5.3');await page.locator('#execution-mode').selectOption('deep');assert.equal(await page.locator('[data-role="planner"]').inputValue(),'glm-5.3');await page.locator('#btn-reset-models').click();assert.equal(await page.locator('[data-role="planner"]').inputValue(),'qwen3.8-max');assert.equal(await page.locator('#model-mode').inputValue(),'recommended');await page.locator('.advanced summary').click();
+  await page.locator('.advanced summary').click();await page.locator('[data-role="planner"]').selectOption('glm-5.3');await page.locator('#execution-mode').selectOption('deep');assert.equal(await page.locator('[data-role="planner"]').inputValue(),'glm-5.3');await page.locator('#btn-reset-models').click();assert.equal(await page.locator('[data-role="planner"]').inputValue(),modelConfig.role_profiles.deep.planner);assert.equal(await page.locator('#model-mode').inputValue(),'recommended');await page.locator('.advanced summary').click();
   await page.locator('[data-run="demo"]').click();await page.locator('#sources-modal').waitFor({state:'visible'});
   assert.equal(await page.locator('#sources-options input').count(),3);await page.locator('#btn-sources-start').click();assert.match(await page.locator('#sources-error').textContent(),/至少选择/);assert.equal(submissions.length,0);
   await page.locator('#sources-options input[value="parallel"]').check();await page.locator('#sources-options input[value="you"]').check();await page.locator('#btn-close-sources').click();await page.locator('[data-open-pending]:visible').click();assert.equal(await page.locator('#sources-options input[value="parallel"]').isChecked(),true);

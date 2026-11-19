@@ -124,9 +124,9 @@ const records={
   // Existing report-Q&A can still open, select a model and submit one request.
   await page.setViewportSize({width:1600,height:1000});await select('reporting');
   await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
-  await page.locator('#report-chat-model').selectOption('kimi-k3');await page.locator('#report-chat-question').fill('哪些结论仍然无法确认？');await page.locator('#report-chat-send').click();
+  await page.locator('#report-chat-model').selectOption('kimi-k3.1-pro');await page.locator('#report-chat-question').fill('哪些结论仍然无法确认？');await page.locator('#report-chat-send').click();
   await page.waitForFunction(()=>document.querySelectorAll('.chat-assistant:not(.chat-waiting)').length===1);
-  assert.equal(posts.length,1);assert.equal(posts[0].model_id,'kimi-k3');assert.equal(posts[0].report_type,'研究报告');await xss();
+  assert.equal(posts.length,1);assert.equal(posts[0].model_id,'kimi-k3.1-pro');assert.equal(posts[0].report_type,'研究报告');await xss();
   await page.locator('#report-chat-close').click();
   await page.locator('[data-run="old"]').click();
   await page.waitForFunction(()=>document.querySelector('#task-title').textContent==='没有逐请求统计的旧任务');

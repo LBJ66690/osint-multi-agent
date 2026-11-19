@@ -12,6 +12,7 @@
   }
   async function request(url, body) {
     const response = await fetch(url, body === undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (response.status === 401) window.OSINTAuth?.expired();
     let data = {}; try { data = await response.json(); } catch {}
     if (!response.ok) throw new Error(typeof data.detail==='string' ? data.detail : `请求未完成 (${response.status})，请稍后重试。`);
     return data;

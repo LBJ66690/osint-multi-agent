@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>账号登录 · 情报指挥台</title>
+  <link rel="stylesheet" href="/static/auth.css">
+  <script src="/static/auth.js" defer></script>
+</head>
+<body class="auth-page">
+  <main class="auth-layout">
+    <section class="auth-intro" aria-labelledby="platform-title">
+      <div class="auth-brand"><span class="auth-mark" aria-hidden="true">◈</span> 情报指挥台</div>
+      <div>
+        <h1 id="platform-title">开源情报<br>研究工作台</h1>
+        <p>在个人工作区发起和恢复研究，查看证据、报告与追问记录。</p>
+      </div>
+    </section>
+    <section class="auth-panel" aria-labelledby="auth-title">
+      <nav class="auth-tabs" aria-label="账户操作">
+        <a id="login-tab" href="/login">登录</a>
+        <a id="register-tab" href="/register">注册</a>
+      </nav>
+      <h2 id="auth-title">登录工作台</h2>
+      <form id="auth-form" method="post" action="/api/auth/login">
+        <label for="username">用户名</label>
+        <input id="username" name="username" autocomplete="username" required pattern="[A-Za-z0-9_]{3,32}" maxlength="32" autocapitalize="none" spellcheck="false">
+        <p class="auth-hint" id="username-hint" hidden>3–32 个英文字母、数字或下划线。</p>
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128">
+        <p class="auth-hint" id="password-hint" hidden>使用至少 12 个字符。</p>
+        <div id="invite-field" hidden>
+          <label for="signup-code">邀请码</label>
+          <input id="signup-code" name="signup-code" type="password" autocomplete="off" maxlength="128">
+        </div>
+        <p class="auth-feedback" id="auth-feedback" role="alert" hidden></p>
+        <button id="auth-submit" type="submit" disabled>登录</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

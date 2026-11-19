@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="theme-color" content="#faf8f3"><title>OSINT · 情报指挥台</title><link rel="stylesheet" href="/static/style.css?v=24"><link rel="stylesheet" href="/static/visual-effects.css?v=23"><link rel="stylesheet" href="/static/report-chat.css?v=23"><link rel="stylesheet" href="/static/tactical-theme.css?v=23"><link rel="stylesheet" href="/static/research-pet.css?v=26"><link rel="stylesheet" href="/static/workspace-layout.css?v=26"><link rel="stylesheet" href="/static/warm-theme.css?v=28"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="theme-color" content="#faf8f3"><title>OSINT · 情报指挥台</title><link rel="stylesheet" href="/static/style.css?v=24"><link rel="stylesheet" href="/static/visual-effects.css?v=23"><link rel="stylesheet" href="/static/report-chat.css?v=23"><link rel="stylesheet" href="/static/tactical-theme.css?v=23"><link rel="stylesheet" href="/static/research-pet.css?v=26"><link rel="stylesheet" href="/static/workspace-layout.css?v=26"><link rel="stylesheet" href="/static/warm-theme.css?v=28"><link rel="stylesheet" href="/static/auth.css?v=1"></head>
 <body class="welcome-view">
 <div class="app-shell">
   <header class="topbar">
     <a class="brand" href="/" aria-label="情报指挥台首页"><span class="brand-mark">◈</span><span>情报指挥台<small>OSINT RESEARCH STUDIO</small></span></a>
-    <div class="top-status"><span class="health" id="health-pill"><i></i><span id="health-text">连接中</span></span><span class="total-clock">任务总历时 <b id="total-time">—</b></span><button class="icon-button" id="btn-motion" aria-pressed="false">减少动效</button></div>
+    <div class="top-status"><span class="health" id="health-pill"><i></i><span id="health-text">连接中</span></span><span class="total-clock">任务总历时 <b id="total-time">—</b></span><button class="icon-button" id="btn-motion" aria-pressed="false">减少动效</button><div class="account-session" id="account-session" hidden><span id="account-name"></span><button class="icon-button" id="account-signout" type="button">退出</button><span id="account-message" role="status"></span></div></div>
   </header>
   <div class="layout">
     <aside class="sidebar">
@@ -14,7 +14,7 @@
         <details class="advanced"><summary>查看岗位模型与理由 <span>6 个岗位</span></summary><div class="role-grid" id="role-grid">
           <label>规划<select data-role="planner"></select></label><label>收集<select data-role="collector"></select></label><label>分析<select data-role="analyst"></select></label><label>推理<select data-role="reasoner"></select></label><label>报告<select data-role="reporter"></select></label><label>核查<select data-role="verifier"></select></label>
         </div><button class="soft-button" id="btn-reset-models" type="button">恢复推荐配置</button><p class="model-help">免费 MCP 直接收集资料，无需调用收集模型。手动选择的大模型仍受阶段预算约束。</p><div id="model-sources" class="model-help"></div></details>
-        <div id="sidebar-examples-slot"><div class="example-chips"><button class="chip" data-example="调研贵阳花溪区旅游口碑，形成舆情分析报告">花溪旅游口碑 ↗</button><button class="chip" data-example="调研当前 coding 大模型的能力与评测依据，形成对比报告">大模型能力对比 ↗</button></div></div>
+        <div id="sidebar-examples-slot"><div class="example-chips"><button class="chip" data-example="核验贵州花江峡谷大桥的 625 米、626.01 米和 606.501 米分别指什么。对照 2025 年通车资料、吉尼斯认证和建设单位说明，逐条给出指标、时间和原文。对于 625 米与 626.01 米的差异原因，如无明确出处，请标记待查。">贵州高桥纪录核验 ↗</button><button class="chip" data-example="核验贵州全省算力是否已经达到 190 EFlops。对照 2026 年贵州省政府工作报告中的回顾与年度安排，再查同口径的后续省级实绩。区分全省与贵阳贵安、年度目标与实际规模，证据不足时明确标出。">贵州算力目标核验 ↗</button></div></div>
         <div class="action-buttons"><span id="sidebar-send-slot"><button type="button" class="btn-run" id="btn-run" disabled><span id="btn-run-text">载入推荐配置…</span><span>↗</span></button></span><button class="btn-cancel hidden" id="btn-cancel">终止</button></div><button class="btn-resume hidden" id="btn-resume">↻ 从中断处继续（保留原模型）</button><label id="resume-model-option" class="model-help hidden"><input type="checkbox" id="resume-change-models"> 本次恢复改用上方模型配置</label><p id="resume-help" class="model-help hidden">复用已保存产出，从失败步骤继续。本次工作预算重新计算，历史计时保留。</p>
       </section>
       <button id="btn-history" class="mobile-history-toggle" aria-expanded="false">展开研究记录 ↓</button>
@@ -117,6 +117,7 @@
 <script src="/static/visual-effects.js?v=24"></script>
 <script src="/static/workspace-layout.js?v=26"></script>
 <script src="/static/research-pet.js?v=26"></script>
+<script src="/static/auth.js?v=1"></script>
 <script src="/static/app.js?v=33"></script>
-<script src="/static/report-chat.js?v=23"></script>
+<script src="/static/report-chat.js?v=24"></script>
 </body></html>

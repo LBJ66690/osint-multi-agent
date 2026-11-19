@@ -41,11 +41,11 @@ function data(run,type){const report=reports.find(r=>r.type===type);if(!report)r
   assert.match(await page.locator('#report-chat-title').textContent(),/报告甲/);
   assert.match(await page.locator('#report-chat-note').textContent(),/消耗.*额度/);
   await page.locator('#report-chat-send').click();assert.match(await page.locator('#report-chat-error').textContent(),/请输入/);assert.equal(posts.length,0);
-  await page.locator('#report-chat-model').selectOption('kimi-k3');await page.locator('#report-chat-question').fill('报告最重要的依据是什么？');
+  await page.locator('#report-chat-model').selectOption('kimi-k3.1-pro');await page.locator('#report-chat-question').fill('报告最重要的依据是什么？');
   await page.evaluate(()=>{document.querySelector('#report-chat-form').requestSubmit();document.querySelector('#report-chat-form').requestSubmit();});
   await page.waitForFunction(()=>document.querySelectorAll('.chat-assistant:not(.chat-waiting)').length===1);
-  assert.equal(posts.length,1);assert.equal(posts[0].model_id,'kimi-k3');assert.equal(posts[0].report_type,'报告甲');assert.equal('report' in posts[0],false);
-  assert.equal(await page.locator('#report-chat-messages img').count(),0);assert.match(await page.locator('#report-chat-messages').textContent(),/kimi-k3/);
+  assert.equal(posts.length,1);assert.equal(posts[0].model_id,'kimi-k3.1-pro');assert.equal(posts[0].report_type,'报告甲');assert.equal('report' in posts[0],false);
+  assert.equal(await page.locator('#report-chat-messages img').count(),0);assert.match(await page.locator('#report-chat-messages').textContent(),/kimi-k3\.1-pro/);
   await page.locator('#report-chat-modal').press('Escape');assert.equal(await page.locator('#btn-ask-report').evaluate(e=>e===document.activeElement),true);
   await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
   assert.equal(await page.locator('.chat-user').count(),1);

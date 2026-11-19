@@ -1,0 +1,30 @@
+name: osint-rds
+services:
+  web:
+    build:
+      context: ..
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      OSINT_STORAGE: mysql
+      OSINT_PUBLIC_ORIGIN: ${OSINT_PUBLIC_ORIGIN:?set the HTTPS site origin}
+      OSINT_SECURE_COOKIE: "1"
+      OSINT_DB_HOST: ${OSINT_DB_HOST:?set the RDS private address}
+      OSINT_DB_PORT: ${OSINT_DB_PORT:-3306}
+      OSINT_DB_NAME: ${OSINT_DB_NAME:-osint}
+      OSINT_DB_USER: ${OSINT_DB_USER:?set a dedicated database account}
+      OSINT_DB_PASSWORD: ${OSINT_DB_PASSWORD:?set the database password}
+      OSINT_DB_SSL_CA: ${OSINT_DB_SSL_CA_IN_CONTAINER:-}
+      OSINT_REGISTRATION_ENABLED: ${OSINT_REGISTRATION_ENABLED:-1}
+      OSINT_SIGNUP_CODE: ${OSINT_SIGNUP_CODE:-}
+      OSINT_MAX_DAILY_RUNS: ${OSINT_MAX_DAILY_RUNS:-8}
+      OSINT_MAX_DAILY_QUESTIONS: ${OSINT_MAX_DAILY_QUESTIONS:-30}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      OSINT_BAILIAN_FREE_ONLY_CONFIRMED: ${OSINT_BAILIAN_FREE_ONLY_CONFIRMED:-0}
+      OSINT_DISABLED_MODELS: ${OSINT_DISABLED_MODELS:-}
+    volumes:
+      - type: bind
+        source: ${OSINT_RDS_CERT_DIR:-./certs}
+        target: /rds-certs
+        read_only: true

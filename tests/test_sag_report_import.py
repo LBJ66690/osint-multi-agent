@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import httpx
 
+import config
 import sag_report_import
 import server
 
@@ -26,7 +27,7 @@ class SagReportImportTests(unittest.IsolatedAsyncioTestCase):
             state = server.RunState("fixture", "qwen3.8-flash")
             state.reports = [{"type": "fixture", "markdown": "# 甲\n保留 [E1](https://example.test/)\n\n# 乙\n不选这段"}]
             url = f"/api/runs/{state.id}/sag-import"
-            with patch.dict(server.runs, {state.id: state}), \
+            with patch.dict(server.runs, {state.id: state}), patch.object(config, "EXPERIMENT_MODE", False), \
                     patch("sag_evidence.settings", return_value=(index, scope)), \
                     patch("sag_report_import.is_indexed", return_value=True):
                 async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server.app), base_url="http://test") as client:

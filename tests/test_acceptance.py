@@ -88,13 +88,25 @@ class ApiAcceptance(unittest.IsolatedAsyncioTestCase):
 
     async def test_unavailable_quota_model_rejected_without_changing_billing(self):
         import hashlib,time
-        data={'tested_at':time.time(),'account_fingerprint':hashlib.sha256(server.config.DASHSCOPE_API_KEY.encode()).hexdigest(),'models':[{'id':'qwen3.7-flash','ok':False,'error':'403 Free quota exhausted'}]}
+        model_id = "glm-5.3"
+        data={'tested_at':time.time(),'account_fingerprint':hashlib.sha256(server.config.DASHSCOPE_API_KEY.encode()).hexdigest(),'models':[{'id':model_id,'ok':False,'error':'403 Free quota exhausted'}]}
         with patch.object(server.config,'OUTPUT_DIR',self.root):
             (self.root/'acceptance_models.json').write_text(json.dumps(data),encoding='utf-8')
-            response=await self.client.post('/api/runs',json={'task':'test','role_models':{'planner':'qwen3.7-flash'}})
+            response=await self.client.post('/api/runs',json={'task':'test','role_models':{'planner':model_id}})
             self.assertEqual(response.status_code,400)
             listed=(await self.client.get('/api/models')).json()['models']
-            self.assertFalse(next(m for m in listed if m['id']=='qwen3.7-flash')['available'])
+            self.assertFalse(next(m for m in listed if m['id']==model_id)['available'])
+
+    async def test_bailian_requests_are_limited_to_enabled_models(self):
+        allowed = {"qwen4-max", "qwen3.8-flash", "kimi-k3.1-pro", "deepseek-v4.1-flash-1017",
+                   "deepseek-v4.1-flash", "glm-5.3"}
+        catalog = (await self.client.get("/api/models")).json()
+        self.assertEqual({model["id"] for model in catalog["models"]}, allowed)
+        self.assertIn(catalog["default"], allowed)
+        self.assertTrue(all(set(roles.values()) <= allowed for roles in catalog["role_profiles"].values()))
+        for body in ({"model_id": "qwen3.8-max"}, {"role_models": {"reporter": "kimi-k3"}}):
+            response = await self.client.post("/api/runs", json={"task": "测试", **body})
+            self.assertEqual(response.status_code, 400)
     async def test_missing_and_corrupt_checkpoint_preserved(self):
         self.assertIsNone(pipeline.load_checkpoint('missing'))
         path=self.root/'ckpt_broken.json';path.write_text('{broken',encoding='utf-8')

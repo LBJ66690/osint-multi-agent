@@ -26,14 +26,19 @@ def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
     if args == ['--check']:
         import fastapi, uvicorn, mcp
-        from agent_framework.openai import OpenAIChatClient
+        from agent_framework.openai import OpenAIChatClient, OpenAIChatCompletionClient
         from openai import AsyncAzureOpenAI
         print(f'Dependencies OK. URL: http://{config.HOST}:{config.PORT}')
         return 0
-    if args:
-        print('Usage: python launch.py [--check]')
+    if args not in ([], ['--experiment']):
+        print('Usage: python launch.py [--check | --experiment]')
         return 2
-    config.request_api_key()
+    if args:
+        print("Radeon 实验入口已暂停，当前仅支持登记的百炼模型。")
+        return 2
+    import web_auth
+    if not web_auth.online_enabled():
+        config.request_api_key()
     try:
         with socket.socket() as probe:
             probe.bind((config.HOST, config.PORT))
@@ -45,6 +50,8 @@ def main(argv=None):
     url = f'http://{config.HOST}:{config.PORT}'
     try:
         import server
+        if config.EXPERIMENT_MODE:
+            print(f'Experiment: AMD Radeon Cloud / {config.RADEON_MODEL}')
         print(f'Starting service: {url}\nClose this window or press Ctrl+C to stop.')
         threading.Thread(target=open_when_ready, args=(url, stop), daemon=True).start()
         server.main()

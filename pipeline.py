@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import traceback
 import uuid
 import re
@@ -138,16 +139,37 @@ async def _awrite(path: Path, text: str) -> None:
     await asyncio.to_thread(path.write_text, config.redact_secret(text), encoding="utf-8")
 
 
+def _write_checkpoint(path: Path, snapshot: str):
+    temporary = path.with_name(path.name + "." + uuid.uuid4().hex[:8] + ".tmp")
+    try:
+        temporary.write_text(config.redact_secret(snapshot), encoding="utf-8")
+        for attempt in range(4):
+            try:
+                temporary.replace(path)
+                return
+            except PermissionError as error:
+                if getattr(error, "winerror", None) not in {5, 32} or attempt == 3:
+                    raise
+                time.sleep(0.025 * (attempt + 1))
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            config.logger.debug("检查点临时文件待清理")
+
+
 async def save_checkpoint(run_id: str, data: dict) -> None:
     """即时将阶段数据持久化至检查点文件，确保崩溃不丢数据"""
     if not run_id:
         return
     try:
-        p = get_checkpoint_path(run_id)
         snapshot = json.dumps(config.redact_data(data), ensure_ascii=False, indent=2)
-        temporary = p.with_name(p.name + "." + uuid.uuid4().hex[:8] + ".tmp")
-        await _awrite(temporary, snapshot)
-        await asyncio.to_thread(temporary.replace, p)
+        writer = asyncio.create_task(asyncio.to_thread(_write_checkpoint, get_checkpoint_path(run_id), snapshot))
+        try:
+            await asyncio.shield(writer)
+        except asyncio.CancelledError:
+            await writer
+            raise
         config.logger.debug(f"[{run_id}] 检查点已保存，已完成阶段: {data.get('completed_stages', [])}")
     except Exception as e:
         config.logger.warning(f"[{run_id}] 保存检查点异常: {e}")
@@ -173,8 +195,9 @@ def _verification_appendix(report_type: str, v: VerificationReport) -> str:
 
 
 async def run_pipeline(task, model_id, emit, confirm, run_id="", role_models_override=None,
-                       resume=False, gate=None, select_sources=None, execution_mode="auto", search_strategy="legacy"):
+                       resume=False, gate=None, select_sources=None, execution_mode="auto", search_strategy="legacy",
+                       store=None):
     import sys
     from pipeline_execution import execute
     return await execute(sys.modules[__name__], task, model_id, emit, confirm, run_id,
-                         role_models_override, resume, gate, select_sources, execution_mode, search_strategy)
+                         role_models_override, resume, gate, select_sources, execution_mode, search_strategy, store)

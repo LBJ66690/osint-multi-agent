@@ -143,6 +143,23 @@ class PipelineDependencies(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.fixture.calls['ResearchPlan'], 1)
         self.assertEqual(len(self.fixture.searches), 1)
 
+    async def test_resume_replaces_removed_role_model_and_preserves_finished_steps(self):
+        await self.interrupted_after_saved_operation("analyzing:produce:0")
+        cp = self.fixture.checkpoint()
+        cp["role_models"]["analyst"] = "qwen3.8-27b"
+        cp["role_overrides"] = {"analyst": "qwen3.8-27b"}
+        cp["operations"]["analyzing:produce:0"]["signature"] = signature([self.prompts["Knowledge"], "Knowledge"])
+        await pipeline.save_checkpoint("test", cp)
+
+        await self.fixture.run_task(resume=True)
+
+        cp = self.fixture.checkpoint()
+        self.assertEqual(cp["role_models"]["analyst"], "deepseek-v4.1-flash-1017")
+        self.assertNotIn("analyst", cp["role_overrides"])
+        self.assertEqual(self.fixture.calls["Knowledge"], 2)
+        self.assertEqual(self.fixture.calls["ResearchPlan"], 1)
+        self.assertEqual(len(self.fixture.searches), 1)
+
     async def test_changed_reporter_model_invalidates_uncommitted_report_cache(self):
         await self.interrupted_after_saved_operation('report:简明解答:produce:0')
         old = self.fixture.checkpoint()['role_models']['reporter']

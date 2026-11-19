@@ -13,6 +13,12 @@ from asyncio_compat import install_cleanup_handler
 
 
 class JsonTests(unittest.IsolatedAsyncioTestCase):
+    def test_verification_template_preserves_fixed_scope_value(self):
+        contract = agents._output_contract(VerificationReport)
+        template, _ = json.JSONDecoder().raw_decode(contract)
+        self.assertEqual(template["scope"], "provided_evidence")
+        self.assertIn('$.scope 固定值："provided_evidence"', contract)
+
     def test_template_matches_real_entity_shape_without_wrappers(self):
         contract=agents._output_contract(Knowledge)
         template, _=json.JSONDecoder().raw_decode(contract)

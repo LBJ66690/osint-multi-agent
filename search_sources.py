@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+import config
 
 SOURCES = [
     {"id": "parallel", "name": "Parallel 网页搜索 MCP", "free": True,
@@ -32,8 +33,8 @@ def validate_sources(ids: list[str]) -> list[str]:
         raise ValueError("包含已撤下或未知搜索渠道，请重新选择")
     return list(dict.fromkeys(ids))
 
-def source_options() -> list[dict]:
-    return [dict(s) for s in SOURCES]
+def source_options(free_only=False) -> list[dict]:
+    return [dict(s) for s in SOURCES if not (free_only or config.EXPERIMENT_MODE) or s["id"] in FREE_IDS]
 
 def plain(value) -> str:
     return html.unescape(re.sub(r"<[^>]*>", "", str(value or ""))).strip()

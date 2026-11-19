@@ -26,7 +26,7 @@ goto check
 
 :check
 echo Using Python: %PYCMD%
-%PYCMD% -c "import fastapi,uvicorn,mcp; from agent_framework.openai import OpenAIChatClient; from openai import AsyncAzureOpenAI" 2>nul
+%PYCMD% -c "import fastapi,uvicorn,mcp; from agent_framework.openai import OpenAIChatClient,OpenAIChatCompletionClient; from openai import AsyncAzureOpenAI" 2>nul
 if not errorlevel 1 goto ready
 if /i "%~1"=="--check" exit /b 1
 echo Dependencies missing, installing via Aliyun mirror ...

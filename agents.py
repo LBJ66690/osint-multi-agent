@@ -10,9 +10,11 @@ from typing import Any, Awaitable, Callable, Optional
 from pydantic import BaseModel, Field, ValidationError
 
 from agent_framework import Agent, ContextWindowCompactionStrategy, FunctionTool, MCPStreamableHTTPTool
-from agent_framework.openai import OpenAIChatClient
+from agent_framework.openai import OpenAIChatClient, OpenAIChatCompletionClient
 import httpx
 from openai import AsyncOpenAI
+import httpx
+from bailian_models import mark_exhausted
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
@@ -208,14 +210,48 @@ def make_local_tools(emitter: Optional[Emitter] = None) -> list:
 
 
 # ---------- 模型客户端（OpenAI 兼容） ----------
-def make_chat_client(model_id: str | None = None, request_timeout: float = 85) -> OpenAIChatClient:
-    return OpenAIChatClient(
+async def _guard_model_request(request: httpx.Request):
+    if config.EXPERIMENT_MODE:
+        raise RuntimeError("当前项目仅允许截图中登记的百炼模型调用。")
+    if request.method != "POST":
+        return
+    if not config.bailian_free_only_confirmed():
+        raise RuntimeError("请在百炼控制台开启免费额度用完即停，再启用模型调用。")
+    payload = json.loads(request.content)
+    model = payload.get("model")
+    if not isinstance(model, str):
+        raise ValueError("模型请求未携带可验证的模型 ID。")
+    if reason := config.bailian_unavailable(model):
+        raise ValueError(f"{model}：{reason}")
+
+
+async def _observe_model_response(response: httpx.Response):
+    if response.status_code != 403:
+        return
+    try:
+        await response.aread()
+        detail = response.json()
+        error = detail.get("error") or {}
+        code = error.get("code") or detail.get("code")
+        if code == "AllocationQuota.FreeTierOnly":
+            mark_exhausted(json.loads(response.request.content).get("model"))
+    except (ValueError, TypeError, AttributeError):
+        return
+
+
+def make_chat_client(model_id: str | None = None, request_timeout: float = 85) -> OpenAIChatClient | OpenAIChatCompletionClient:
+    client_type = OpenAIChatCompletionClient if config.EXPERIMENT_MODE else OpenAIChatClient
+    return client_type(
         model=config.resolve_model(model_id),
         async_client=AsyncOpenAI(
             api_key=config.chat_api_key(),
-            base_url=config.BASE_URL,
+            base_url=config.RADEON_BASE_URL if config.EXPERIMENT_MODE else config.BASE_URL,
             timeout=request_timeout,
             max_retries=0,
+            http_client=httpx.AsyncClient(
+                timeout=request_timeout, follow_redirects=False,
+                event_hooks={"request": [_guard_model_request], "response": [_observe_model_response]},
+            ),
         ),
     )
 
@@ -248,6 +284,8 @@ def build_agent(model_id: str, instructions: str, name: str, tools=None, cap_out
 
 # ---------- MCP 工具工厂 ----------
 def make_websearch_mcp(emitter: Optional[Emitter] = None) -> ObservableMCPStreamableHTTPTool:
+    if config.EXPERIMENT_MODE:
+        raise RuntimeError("实验模式不启用百炼 WebSearch。")
     # 远程 MCP：百炼联网搜索（Streamable HTTP，Bearer 鉴权）
     return ObservableMCPStreamableHTTPTool(
         name="bailian-websearch",
@@ -275,6 +313,8 @@ def _robust_http_factory(headers=None, timeout=None, auth=None):
 @asynccontextmanager
 async def websearch_mcp_session(emitter: Optional[Emitter] = None):
     """用原生 mcp 建立并握手百炼 WebSearch，再把“已连接会话”注入 MAF 工具。"""
+    if config.EXPERIMENT_MODE:
+        raise RuntimeError("实验模式不启用百炼 WebSearch。")
     headers = {"Authorization": f"Bearer {config.DASHSCOPE_API_KEY}"}
     async with streamablehttp_client(
         config.WEBSEARCH_MCP_URL,
@@ -440,7 +480,7 @@ def _agent_model_id(agent) -> str:
 
 
 def _model_supports_temperature(model_id: str) -> bool:
-    """查模型清单：是否接受 temperature 参数（kimi-k3 等模型会直接 400）。"""
+    """检查模型是否接受自定义 temperature。"""
     m = models.get_model(model_id or "")
     return m.get("supports_temperature", True) if m else True
 
@@ -457,6 +497,9 @@ def _output_contract(schema: type[BaseModel]) -> str:
             node = definition['$defs'][node['$ref'].rsplit('/', 1)[-1]]
         if node.get('description'):
             notes.append(path + '：' + node['description'])
+        if 'const' in node:
+            notes.append(path + ' 固定值：' + json.dumps(node['const'], ensure_ascii=False) + '。原样输出。')
+            return node['const']
         if node.get('type') == 'object' and 'properties' in node:
             required = node.get('required', [])
             notes.append(path + ' 必填字段：' + '、'.join(required))

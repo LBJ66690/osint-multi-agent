@@ -24,7 +24,11 @@ async def main(argv=None) -> int:
     parser.add_argument('--task',help='新任务内容；省略时交互输入')
     parser.add_argument('--mode',choices=['auto','quick','standard','deep'],default='auto')
     parser.add_argument('--search-strategy',choices=['legacy','adaptive'],default='legacy')
+    parser.add_argument('--experiment', action='store_true', help='历史 Radeon 入口，当前已暂停')
     args=parser.parse_args(argv)
+    if args.experiment:
+        print("Radeon 实验入口已暂停，当前仅支持登记的百炼模型。")
+        return 2
     config.check_key()
     hr("OSINT 开源情报多智能体分析平台 (CLI)")
 
@@ -129,7 +133,8 @@ async def main(argv=None) -> int:
         return 0
     except Exception as e:
         print(f"\n任务中断: {config.redact_secret(str(e))}")
-        print(f"恢复命令：python main.py --resume {run_id}")
+        experiment_arg = " --experiment" if args.experiment else ""
+        print(f"恢复命令：python main.py{experiment_arg} --resume {run_id}")
         return 1
 
 

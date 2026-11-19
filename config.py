@@ -3,7 +3,14 @@ from __future__ import annotations
 
 import os
 import sys
+import hashlib
+import json
+import time
 from pathlib import Path
+from bailian_models import (
+    BAILIAN_MODEL_IDS, DEFAULT_BAILIAN_MODEL, available_model, free_only_confirmed as bailian_free_only_confirmed,
+    quota_unavailable,
+)
 
 ROOT = Path(__file__).resolve().parent
 
@@ -22,23 +29,31 @@ for _name, _value in dotenv_values(ROOT / ".env").items():
 
 # 百炼 API Key
 DASHSCOPE_API_KEY: str = os.environ.pop("DASHSCOPE_API_KEY", "").strip()
+RADEON_API_KEY: str = os.environ.pop("RADEON_API_KEY", "").strip()
+RADEON_BASE_URL = "https://developer.amd.com.cn/radeon/api/v1"
+RADEON_MODEL = "DeepSeek-V4-Flash"
+EXPERIMENT_MODE = False
+
 
 def chat_api_key() -> str:
-    return DASHSCOPE_API_KEY
+    return RADEON_API_KEY if EXPERIMENT_MODE else DASHSCOPE_API_KEY
 
 
 def model_provider() -> str:
-    return "bailian"
+    return "amd-radeon" if EXPERIMENT_MODE else "bailian"
 
 
 def clear_api_keys() -> None:
-    global DASHSCOPE_API_KEY
-    DASHSCOPE_API_KEY = ""
+    global DASHSCOPE_API_KEY, RADEON_API_KEY
+    DASHSCOPE_API_KEY = RADEON_API_KEY = ""
 
 
 def redact_secret(text: str) -> str:
     """阻止当前运行密钥进入日志、报告和检查点。"""
-    return text.replace(DASHSCOPE_API_KEY, "[REDACTED]") if DASHSCOPE_API_KEY else text
+    for key in (DASHSCOPE_API_KEY, RADEON_API_KEY):
+        if key:
+            text = text.replace(key, "[REDACTED]")
+    return text
 
 
 def redact_data(value):
@@ -55,23 +70,29 @@ def request_api_key() -> None:
     """强制隐藏输入；不回显、不写文件、不传递给浏览器子进程。"""
     import getpass
     import warnings
-    global DASHSCOPE_API_KEY
+    global DASHSCOPE_API_KEY, RADEON_API_KEY
     clear_api_keys()
     os.environ.pop("DASHSCOPE_API_KEY", None)
+    os.environ.pop("RADEON_API_KEY", None)
+    provider = "AMD Radeon Cloud" if EXPERIMENT_MODE else "Bailian"
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)
             key = ""
             while not key:
-                key = getpass.getpass("Enter Bailian API Key (hidden): ").strip()
+                key = getpass.getpass(f"Enter {provider} API Key (hidden): ").strip()
                 if not key:
                     print("API Key cannot be empty. Please try again.")
     except (EOFError, KeyboardInterrupt, getpass.GetPassWarning):
         raise SystemExit("API Key input cancelled. Run in an interactive terminal.") from None
-    DASHSCOPE_API_KEY = key
+    if EXPERIMENT_MODE:
+        RADEON_API_KEY = key
+    else:
+        DASHSCOPE_API_KEY = key
 
 # 默认模型（可在 UI 或 .env 中覆盖）
-DEFAULT_MODEL: str = os.getenv("MODEL", "qwen3.8-max").strip()
+_configured_model = os.getenv("MODEL", "").strip()
+DEFAULT_MODEL: str = _configured_model if _configured_model in BAILIAN_MODEL_IDS else DEFAULT_BAILIAN_MODEL
 
 # 业务空间 ID（可选）
 WORKSPACE_ID: str = os.getenv("WORKSPACE_ID", "").strip()
@@ -136,6 +157,23 @@ HOST = "127.0.0.1"
 PORT = int(os.getenv("PORT", "8765"))
 
 
+def enable_experiment() -> None:
+    """仅由启动入口调用，在导入服务和读取任务历史前固定实验环境。"""
+    global EXPERIMENT_MODE, PORT, DASHSCOPE_API_KEY
+    if EXPERIMENT_MODE:
+        return
+    port = int(os.getenv("RADEON_EXPERIMENT_PORT", "8766"))
+    previous_log = (LOG_DIR / "app.log").resolve()
+    _set_output_dir(ROOT / "outputs" / "experiments" / "radeon")
+    for handler in logger.handlers[:]:
+        if isinstance(handler, RotatingFileHandler) and Path(handler.baseFilename) == previous_log:
+            logger.removeHandler(handler)
+            handler.close()
+    logger.addHandler(_file_handler())
+    DASHSCOPE_API_KEY = ""
+    EXPERIMENT_MODE = True
+    PORT = port
+
 # 收集阶段：搜索限流与结果截断（在保证来源/要点的前提下控制 token）
 SEARCH_MAX_CALLS = int(os.getenv("SEARCH_MAX_CALLS", "18"))       # 单次任务搜索硬上限
 SEARCH_RESULT_MAX_CHARS = int(os.getenv("SEARCH_RESULT_MAX_CHARS", "1600"))  # 每条搜索结果回填长度
@@ -145,16 +183,47 @@ CONTEXT_WINDOW_TOKENS = int(os.getenv("CONTEXT_WINDOW_TOKENS", "131072"))
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "8192"))
 
 
+def bailian_unavailable(model_id):
+    if reason := quota_unavailable(model_id):
+        return reason
+    try:
+        probe = json.loads((OUTPUT_DIR / "acceptance_models.json").read_text(encoding="utf-8"))
+        if 0 <= time.time() - probe["tested_at"] <= 3600:
+            fingerprint = hashlib.sha256(DASHSCOPE_API_KEY.encode()).hexdigest()
+            if probe["account_fingerprint"] == fingerprint:
+                row = next((item for item in probe["models"] if item["id"] == model_id), {})
+                error = row.get("error", "").lower()
+                if row.get("ok") is False and "403" in error and "quota" in error:
+                    return "当前账户的近期额度检查返回 403，请选择仍可用的模型。"
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None
+    return None
+
+
+def preferred_bailian_model() -> str | None:
+    return available_model(DEFAULT_MODEL, bailian_unavailable)
+
+
 def resolve_model(model_id: str | None = None) -> str:
-    """解析最终使用的模型 id。未指定/为空时回退到默认。"""
-    model_id = (model_id or "").strip() or DEFAULT_MODEL
-    return model_id
+    """显式选择失效时提示用户，自动选择仅使用名单中仍启用的模型。"""
+    if EXPERIMENT_MODE:
+        return RADEON_MODEL
+    selected = (model_id or "").strip() or preferred_bailian_model()
+    if not selected:
+        raise ValueError("当前没有可用的免费额度模型。")
+    if reason := bailian_unavailable(selected):
+        raise ValueError(f"{selected}：{reason}")
+    return selected
 
 
 def check_key() -> None:
     """启动前校验：没有 Key 就给出明确提示。"""
     if not chat_api_key():
         request_api_key()
+    if EXPERIMENT_MODE:
+        if not RADEON_API_KEY:
+            raise SystemExit("请运行 python launch.py --experiment 并输入 AMD Radeon Cloud API Key。")
+        return
     if not DASHSCOPE_API_KEY or DASHSCOPE_API_KEY.startswith("sk-在这里"):
         raise SystemExit(
             "\n[配置错误] 未检测到 DASHSCOPE_API_KEY。\n"
