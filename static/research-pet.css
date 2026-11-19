@@ -23,33 +23,8 @@
 .fish-scene:focus-visible { outline:2px solid #96e8d2; outline-offset:0; }
 .fish-art { display:block; width:100%; height:auto; max-height:178px; overflow:visible; pointer-events:none; filter:drop-shadow(0 7px 7px #0002); }
 .fish-float { animation:fish-float 3.4s ease-in-out infinite; transform-origin:140px 110px; }
-.fish-character { transform-origin:145px 108px; }
-.fish-tail { transform-origin:80px 105px; animation:fish-tail 1.8s ease-in-out infinite; }
-.fish-fin { transform-origin:113px 116px; animation:fish-fin 3.4s ease-in-out infinite; }
-.fish-eyes { transform-origin:172px 97px; animation:fish-blink 6s infinite; }
-.fish-happy-eyes,.fish-worried-mouth,.fish-magnifier,.fish-document { display:none; }
-.fish-water-bubble { animation:fish-water 3.5s ease-in-out infinite; }.bubble-b { animation-delay:.7s; }.bubble-c { animation-delay:1.4s; }
-.fish-hearts { position:absolute; left:38%; top:25%; width:30%; height:20%; pointer-events:none; display:none; }
-.fish-hearts i { position:absolute; left:0; top:10px; font-style:normal; color:#ffb7d2; font-size:20px; text-shadow:0 0 10px #ffb7d244; animation:fish-heart 1.2s ease-out both; }
-.fish-hearts i:nth-child(2) { left:24px; top:-5px; animation-delay:.1s; font-size:14px; }.fish-hearts i:nth-child(3) { left:43px; top:13px; animation-delay:.2s; font-size:17px; }
-.fish-thought { display:none; position:absolute; right:12%; top:8%; font-size:26px; font-weight:700; letter-spacing:2px; color:#f1dfaa; animation:fish-think 1.8s ease-in-out infinite; }
-.fish-sparkles { display:none; position:absolute; top:8%; left:4%; width:92%; color:#ffdf95; font-size:22px; letter-spacing:3px; pointer-events:none; }
-.research-pet.is-petted .fish-character { animation:fish-cuddle .9s ease-out; }
-.research-pet.is-petted .fish-eyes,.research-pet[data-mood=celebrate] .fish-eyes { display:none; }
-.research-pet.is-petted .fish-happy-eyes,.research-pet[data-mood=celebrate] .fish-happy-eyes { display:block; }
-.research-pet.is-petted .fish-hearts { display:block; }
-.research-pet[data-mood=searching] .fish-tail { animation-duration:.7s; }
-.research-pet[data-mood=searching] .fish-magnifier { display:block; }
-.research-pet[data-mood=thinking] .fish-thought { display:block; }
-.research-pet[data-mood=thinking] .fish-character { animation:fish-ponder 3s ease-in-out infinite; }
-.research-pet[data-mood=writing] .fish-document,.research-pet[data-mood=checking] .fish-magnifier { display:block; }
-.research-pet[data-mood=writing] .fish-fin { animation-duration:.8s; }
-.research-pet[data-mood=worried] .fish-mouth { display:none; }.research-pet[data-mood=worried] .fish-worried-mouth { display:block; }
-.research-pet[data-mood=celebrate] .fish-sparkles { display:block; animation:fish-celebrate 2.2s ease-in-out 3; }
-.research-pet[data-mood=celebrate] .fish-character { animation:fish-cheer 1.8s ease-in-out 3; }
-.research-pet.is-petted .fish-character { animation:fish-cuddle .9s ease-out; }
+.research-pet[data-mood=searching] .fish-float { animation-duration:1.4s; }
 .fish-hint { display:flex; justify-content:space-between; gap:7px; font-size:9px; color:#b1ccdc; line-height:1.8; margin:0 1px 10px; }
-#fish-affection { color:#ffc4d7; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .fish-controls { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
 .fish-controls button,.fish-go { border:1px solid #3c657a; border-radius:8px; padding:7px 5px; background:#102b3d; color:#c4e0eb; font-size:10px; line-height:1.5; }
 .fish-controls button:hover,.fish-go:hover { background:#1c4653; color:#e1fff1; border-color:#6da49e; }
@@ -62,16 +37,6 @@
 .research-pet[data-collapsed=true] .fish-header h3:before { content:'◉'; display:inline-block; margin-right:7px; color:#83daca; font-size:12px; }
 .page-hidden .research-pet * { animation-play-state:paused!important; }
 @keyframes fish-float { 50% { transform:translateY(-5px); } }
-@keyframes fish-tail { 50% { transform:rotate(-10deg) scaleX(.9); } }
-@keyframes fish-fin { 50% { transform:rotate(12deg); } }
-@keyframes fish-blink { 0%,43%,47%,100% { transform:scaleY(1); } 45% { transform:scaleY(.1); } }
-@keyframes fish-water { 0% { opacity:0; transform:translateY(8px); } 35% { opacity:.65; } 100% { opacity:0; transform:translateY(-16px); } }
-@keyframes fish-heart { 0% { opacity:0; transform:translateY(12px) scale(.6); } 30% { opacity:1; } 100% { opacity:0; transform:translateY(-35px) scale(1.2); } }
-@keyframes fish-cuddle { 30% { transform:translateY(3px) rotate(-8deg) scale(1.04,.94); } 70% { transform:translateY(-4px) rotate(6deg) scale(.98,1.03); } }
-@keyframes fish-think { 50% { opacity:.5; transform:translateY(-3px); } }
-@keyframes fish-ponder { 50% { transform:rotate(-4deg); } }
-@keyframes fish-celebrate { 50% { transform:translateY(-5px) scale(1.08); opacity:.6; } }
-@keyframes fish-cheer { 30% { transform:translateY(-6px) rotate(-7deg); } 70% { transform:translateY(-4px) rotate(7deg); } }
 @media(min-width:951px) { .workflow-column .nav-stage { padding:11px 8px; margin-bottom:5px; }.workflow-column .nav-tip { margin-top:12px; padding-top:14px; } }
 @media(max-width:1220px) and (min-width:951px) { .fish-header h3 span { display:block; margin:5px 0 0; }.fish-controls { gap:4px; }.fish-controls button { font-size:9px; } }
 @media(max-width:950px) {
@@ -82,5 +47,8 @@
   .research-pet[data-collapsed=true] .fish-header { padding-top:10px; }.research-pet[data-collapsed=true] .fish-state { padding-top:6px; padding-bottom:10px; }
 }
 @media(max-width:380px) { .fish-details { grid-template-columns:minmax(0,1fr) 102px; gap:8px; padding:0 10px 10px; }.fish-bubble { padding:9px; font-size:10px; }.fish-hint { font-size:8px; }.fish-art { max-height:100px; } }
-@media(prefers-reduced-motion:reduce) { .research-pet * { animation:none!important; transition:none!important; }.research-pet.is-petted .fish-hearts { display:none; } }
-.reduced-motion .research-pet * { animation:none!important; transition:none!important; }.reduced-motion .research-pet.is-petted .fish-hearts { display:none; }
+@media(prefers-reduced-motion:reduce) { .research-pet * { animation:none!important; transition:none!important; } }
+.reduced-motion .research-pet * { animation:none!important; transition:none!important; }
+
+.research-pet .fish-art { display: grid; place-items: center; }
+.research-pet .fish-art img { width: auto; height: min(100%, 140px); max-width: 100%; object-fit: contain; }

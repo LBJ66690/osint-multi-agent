@@ -11,7 +11,8 @@ function data(run,type){const report=reports.find(r=>r.type===type);if(!report)r
  const page=await browser.newPage({viewport:{width:1500,height:1000}});page.on('pageerror',e=>errors.push(e.message));
  await page.route('http://chat.test/**',async route=>{
   const u=new URL(route.request().url()),method=route.request().method(),json=(value,status=200)=>route.fulfill({status,json:value});
-  if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/index.html'),'utf8')});
+  if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/workspace.html'),'utf8')});
+    if (u.pathname.endsWith('.svg')) return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(root,u.pathname),'utf8')});
   if(u.pathname.startsWith('/static/'))return route.fulfill({contentType:u.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(u.pathname)),'utf8')});
   if(u.pathname==='/api/health')return json({has_key:true});
   if(u.pathname==='/api/models')return json(modelConfig);

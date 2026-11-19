@@ -29,8 +29,10 @@ const sources=JSON.parse(fs.readFileSync(path.join(root,'outputs/search_source_o
   const request=route.request(),u=new URL(request.url()),json=(data,status=200)=>route.fulfill({status,json:data});
   if(request.method()!=='GET')mutations.push(request.method()+' '+u.pathname);
   if(u.origin!=='http://layout.test'){unexpected.push(u.href);return route.abort();}
-  if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/index.html'),'utf8')});
+  if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/workspace.html'),'utf8')});
+  if(u.pathname.endsWith('.svg'))return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(root,u.pathname),'utf8')});
   if(u.pathname.startsWith('/static/'))return route.fulfill({contentType:u.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(u.pathname)),'utf8')});
+  if (u.pathname === '/api/auth/me') return route.fulfill({status:404,json:{detail:'Not Found'}});
   if(u.pathname==='/api/health')return json({has_key:true});
   if(u.pathname==='/api/models')return json(models);
   if(u.pathname==='/api/model-recommendation')return json({mode:'standard',label:'标准研究',role_models:models.role_profiles.standard,reasons:{}});
@@ -71,7 +73,7 @@ const sources=JSON.parse(fs.readFileSync(path.join(root,'outputs/search_source_o
   await welcome();
   await page.evaluate(()=>{window.__input=document.querySelector('#task-input');window.__send=document.querySelector('#btn-run');window.__pet=document.querySelector('#research-pet');});
   for(const id of ['task-input','btn-run','research-pet'])assert.equal(await page.locator('#'+id).count(),1,`duplicate ${id}`);
-  await page.locator('#fish-stroke').click();assert.equal(await page.locator('#fish-affection').textContent(),'♡ 1');
+  await page.locator('#fish-stroke').click();assert.equal(await page.locator('#fish-name').textContent(),'小岚 进度导游');
   for(const width of [1920,1366,768,390,320]){
    await page.setViewportSize({width,height:1000});await page.waitForTimeout(50);
    const v=await page.evaluate(()=>{const rect=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return {width:innerWidth,scroll:document.documentElement.scrollWidth,input:rect('#task-input'),pet:rect('#research-pet'),send:rect('#btn-run')};});
@@ -96,7 +98,7 @@ const sources=JSON.parse(fs.readFileSync(path.join(root,'outputs/search_source_o
   await page.waitForFunction(()=>document.querySelector('#btn-run').disabled);await page.locator('#task-input').press('Control+Enter');
   assert.equal(creates.length,2,'Ctrl+Enter while pending must submit only once');
   assert.equal(typeof releaseCreate,'function');holdCreate=false;releaseCreate();
-  await dashboard();assert.equal(await page.locator('#task-input').inputValue(),draft);assert.equal(await page.locator('#fish-affection').textContent(),'♡ 1');
+  await dashboard();assert.equal(await page.locator('#task-input').inputValue(),draft);assert.equal(await page.locator('#fish-name').textContent(),'小岚 进度导游');
   assert.equal(creates.at(-1).execution_mode,'deep');assert.equal(creates.at(-1).search_strategy,'adaptive');
   assert.equal(await page.locator('#btn-new-research').isDisabled(),true,'active task cannot be silently abandoned');
   assert.equal(await page.locator('#execution-mode').inputValue(),'deep');assert.equal(await page.locator('#search-strategy').inputValue(),'adaptive');

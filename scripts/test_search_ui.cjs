@@ -15,10 +15,12 @@ const resumptions=[];
  const detail={id:'demo',task:plan.goal,status:'awaiting_sources',pending_sources:pending,search_sources:[],timeline,events:[{type:'plan',plan}],reports:[],summary:{}};
  await page.route('http://osint.test/**',async route=>{const url=new URL(route.request().url()),json=body=>route.fulfill({json:body});
   if(url.pathname==='/api/comparison')return json(JSON.parse(fs.readFileSync(path.join(root,'outputs/comparison/latest.json'),'utf8')));
-  if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/index.html'),'utf8')});
+  if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/workspace.html'),'utf8')});
+    if (url.pathname.endsWith('.svg')) return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(root,url.pathname),'utf8')});
   if(url.pathname.startsWith('/static/'))return route.fulfill({contentType:url.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(url.pathname)),'utf8')});
   if(url.pathname==='/api/models')return json(modelConfig);
   if(url.pathname==='/api/model-recommendation'){const mode=url.searchParams.get('task')?.includes('是什么')?'quick':'standard';return json({mode,label:mode==='quick'?'简明解答':'标准研究',role_models:modelConfig.role_profiles[mode],reasons:modelConfig.profile_reasons[mode]});}
+  if (url.pathname === '/api/auth/me') return route.fulfill({status:404,json:{detail:'Not Found'}});
   if(url.pathname==='/api/health')return json({has_key:true});
   if(url.pathname==='/api/runs')return json({runs:[{...detail,report_count:0,created_at:new Date(started).toISOString()}]});
   if(url.pathname==='/api/runs/demo')return json(detail);

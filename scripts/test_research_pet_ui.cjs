@@ -27,8 +27,10 @@ const sources=JSON.parse(fs.readFileSync(path.join(root,'outputs/search_source_o
   const request=route.request(),u=new URL(request.url()),json=data=>route.fulfill({json:data});
   if(request.method()!=='GET')mutations.push(request.method()+' '+u.pathname);
   if(u.origin!=='http://fish.test'){unexpected.push(u.href);return route.abort();}
-  if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/index.html'),'utf8')});
+  if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/workspace.html'),'utf8')});
+  if(u.pathname.endsWith('.svg'))return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(root,u.pathname),'utf8')});
   if(u.pathname.startsWith('/static/'))return route.fulfill({contentType:u.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(u.pathname)),'utf8')});
+  if (u.pathname === '/api/auth/me') return route.fulfill({status:404,json:{detail:'Not Found'}});
   if(u.pathname==='/api/health')return json({has_key:true});
   if(u.pathname==='/api/models')return json(models);
   if(u.pathname==='/api/model-recommendation')return json({mode:'standard',label:'标准研究',role_models:models.role_profiles.standard,reasons:{}});
@@ -47,14 +49,9 @@ const sources=JSON.parse(fs.readFileSync(path.join(root,'outputs/search_source_o
   assert.equal(await page.locator('#fish-collapse').getAttribute('aria-expanded'),'true');
   assert.equal(await page.locator('#research-pet').getAttribute('data-mood'),'idle');
   assert.equal(await spoken(),0,'voice must be opt-in');
-  await page.locator('#fish-stroke').click();assert.equal(await page.locator('#fish-affection').textContent(),'♡ 1');
-  assert.equal(await page.locator('#research-pet.is-petted').count(),1);assert.match(await bubble(),/摸/);
-  await page.locator('#research-pet').screenshot({path:path.join(output,'pet-cuddle.png')});
-  await page.waitForTimeout(700);await page.locator('#fish-stroke').press('Enter');assert.equal(await page.locator('#fish-affection').textContent(),'♡ 2');
-  await page.waitForTimeout(700);
-  const bounds=await page.locator('#fish-stroke').boundingBox();
-  await page.mouse.move(bounds.x+40,bounds.y+bounds.height/2);await page.mouse.down();await page.mouse.move(bounds.x+100,bounds.y+bounds.height/2,{steps:5});await page.mouse.up();
-  assert.equal(await page.locator('#fish-affection').textContent(),'♡ 3','rubbing should count once, not also as a click');
+  await page.locator('#fish-stroke').click();assert.equal(await page.locator('#task-input:focus').count(),1);
+  await page.locator('#fish-stroke').press('Enter');assert.equal(await page.locator('#task-input:focus').count(),1);
+  assert.match(await bubble(),/小岚/);assert.equal(await page.locator('#fish-affection').count(),0);
   await page.locator('#fish-voice').click();assert.match(await page.locator('#fish-note').textContent(),/未找到本地中文语音/);assert.equal(await spoken(),0,'remote voices must never be used');
   await page.evaluate(()=>window.__voices.push({name:'Fixture local Chinese voice',lang:'zh-CN',localService:true}));
   await page.locator('#fish-voice').click();assert.equal(await page.locator('#fish-voice').getAttribute('aria-pressed'),'true');assert.equal(await spoken(),1);
@@ -72,7 +69,7 @@ const sources=JSON.parse(fs.readFileSync(path.join(root,'outputs/search_source_o
   await send({type:'stage',stage:'reasoning',status:'running',timeline:timeline('reasoning')});
   await page.waitForTimeout(2350);assert.equal(await page.locator('#research-pet').getAttribute('data-mood'),'thinking');assert.match(await bubble(),/推理官/);assert.doesNotMatch(await bubble(),/2 条网页资料/,'stale queued collection notice must be dropped');
   await page.evaluate(()=>document.dispatchEvent(new CustomEvent('osint:effect',{detail:{type:'tool_result',stage:'reasoning',tool:'<img src=x onerror=alert(1)>',run_id:'another-run',result_count:999}})));
-  assert.match(await bubble(),/推理官/);assert.equal(await page.locator('#research-pet img').count(),0);
+  assert.match(await bubble(),/推理官/);assert.equal(await page.locator('#fish-bubble img').count(),0);
   await page.locator('#fish-announcements').click();assert.match(await bubble(),/暂停/);
   const muted=await spoken();await send({type:'stage',stage:'reporting',status:'running',timeline:timeline('reporting')});
   assert.equal(await spoken(),muted);assert.equal(await page.locator('#fish-status').textContent(),'写报告');assert.match(await bubble(),/暂停/);
@@ -108,21 +105,21 @@ const sources=JSON.parse(fs.readFileSync(path.join(root,'outputs/search_source_o
   }
   await page.setViewportSize({width:1920,height:1200});await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:path.join(output,'pet-desktop.png'),fullPage:true});
-  await page.locator('#btn-motion').click();assert.equal(await page.locator('.fish-tail').evaluate(e=>getComputedStyle(e).animationName),'none');
+  await page.locator('#btn-motion').click();assert.equal(await page.locator('.fish-float').evaluate(e=>getComputedStyle(e).animationName),'none');
   await page.locator('#btn-motion').click();await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.fish-float').evaluate(e=>getComputedStyle(e).animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
-  await page.evaluate(()=>document.body.classList.add('page-hidden'));assert.equal(await page.locator('.fish-tail').evaluate(e=>getComputedStyle(e).animationPlayState),'paused');await page.evaluate(()=>document.body.classList.remove('page-hidden'));
+  await page.evaluate(()=>document.body.classList.add('page-hidden'));assert.equal(await page.locator('.fish-float').evaluate(e=>getComputedStyle(e).animationPlayState),'paused');await page.evaluate(()=>document.body.classList.remove('page-hidden'));
   await page.setViewportSize({width:390,height:844});await page.locator('#research-pet').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,'pet-mobile.png'),fullPage:true});
   const mobileContext=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   try{
    const mobile=await mobileContext.newPage();mobile.on('pageerror',e=>errors.push(e.message));await mobile.route('**/*',routeHandler);
    await mobile.goto('http://fish.test/');await mobile.waitForFunction(()=>!document.querySelector('#btn-run').disabled);
-   assert.equal(await mobile.locator('#fish-details:visible').count(),1,'welcome always shows the greeting fish');
+   assert.equal(await mobile.locator('#fish-details:visible').count(),1,'welcome always shows the greeting guide');
    await mobile.locator('#btn-preview-workspace').tap();assert.equal(await mobile.locator('#fish-details:visible').count(),0,'mobile dashboard defaults to compact');
-   await mobile.locator('#fish-collapse').tap();await mobile.locator('#fish-stroke').tap();assert.equal(await mobile.locator('#fish-affection').textContent(),'♡ 1');
+   await mobile.locator('#fish-collapse').tap();await mobile.locator('#fish-stroke').tap();assert.equal(await mobile.locator('#task-input:focus').count(),1);
    await mobile.setViewportSize({width:320,height:568});assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
   }finally{await mobileContext.close();}
   assert.deepEqual(errors,[]);assert.deepEqual(unexpected,[]);assert.deepEqual(mutations,[],'pet controls never submit task/model/search requests');
   fs.writeFileSync(path.join(output,'ui_results.json'),JSON.stringify({passed:true,checks,errors,unexpected,mutations,model_calls:0,external_search_calls:0,voice:'mocked local voice; remote voice excluded; real system availability varies'},null,2));
-  console.log('FISH PET UI PASS: click/keyboard/rubbing, live execution vs viewed stage, coalescing/stale updates/dedup/isolation, quiet/collapse preferences, opt-in local voice/fallback, pending/report links, errors/resume/completion, mobile/desktop non-overlap, reduced motion; 0 model/search or task mutations.');
+  console.log('RESEARCH GUIDE UI PASS: click/keyboard, live execution vs viewed stage, coalescing/stale updates/dedup/isolation, quiet/collapse preferences, opt-in local voice/fallback, pending/report links, errors/resume/completion, mobile/desktop non-overlap, reduced motion; 0 model/search or task mutations.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

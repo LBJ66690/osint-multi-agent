@@ -1,0 +1,515 @@
+[
+  {
+    "poi_id": "qingyan",
+    "parent_id": null,
+    "name": "青岩古镇",
+    "region": "贵阳",
+    "county": "花溪区",
+    "coordinates": {
+      "longitude": 106.6822,
+      "latitude": 26.3308,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 48,
+      "y": 53
+    },
+    "description": "走过古镇城门、石板街和背街巷道，适合安排半天慢游。",
+    "images": [
+      {
+        "image_id": "qingyan-photo",
+        "src": "/static/travel/assets/qingyan.webp",
+        "alt": "青岩古镇实景",
+        "caption": "青岩古镇实景",
+        "credit": "xiquinhosilva",
+        "license": "CC BY 2.0",
+        "license_url": "https://creativecommons.org/licenses/by/2.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Qingyan_Ancient_Town_86102-Guiyang_(49047230577).jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "文旅部大众旅游服务·贵州",
+        "url": "https://lyfw.mct.gov.cn/site/special/province?pkey=guizhou&type=0"
+      },
+      {
+        "title": "青岩古镇预约购票实名制通告",
+        "url": "https://m.sohu.com/a/969736694_121106902"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://m.sohu.com/a/969736694_121106902",
+      "mini_program": "一码游贵州",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "chishui-danxia",
+    "parent_id": null,
+    "name": "赤水丹霞",
+    "region": "遵义",
+    "county": "赤水市",
+    "coordinates": {
+      "longitude": 105.7347,
+      "latitude": 28.4267,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 32,
+      "y": 25
+    },
+    "description": "丹霞地貌和瀑布集中分布在多个游览片区，出发前确认目标片区。",
+    "images": [
+      {
+        "image_id": "chishui-danxia-photo",
+        "src": "/static/travel/assets/chishui-danxia.webp",
+        "alt": "赤水丹霞实景",
+        "caption": "赤水丹霞实景",
+        "credit": "Nyx Ning",
+        "license": "CC BY-SA 3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Chishui,_Zunyi,_Guizhou,_China_-_panoramio.jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "联合国教科文组织世界遗产",
+        "url": "https://whc.unesco.org/en/list/1335/"
+      },
+      {
+        "title": "赤水丹霞官方票务",
+        "url": "https://shop.csdxcn.com/web/ticket.html"
+      },
+      {
+        "title": "文化和旅游部·赤水丹霞旅游区",
+        "url": "https://sjfw.mct.gov.cn/site/dataservice/culdetails?curId=10&id=35071"
+      }
+    ],
+    "booking": {
+      "type": "direct",
+      "url": "https://shop.csdxcn.com/web/ticket.html",
+      "mini_program": null,
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "wumeng-grassland",
+    "parent_id": null,
+    "name": "乌蒙大草原",
+    "region": "六盘水",
+    "county": "盘州市",
+    "coordinates": {
+      "longitude": 104.5354,
+      "latitude": 26.0814,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 21,
+      "y": 63
+    },
+    "description": "高海拔草甸适合观景，风大和起雾时留意景区公告。",
+    "images": [
+      {
+        "image_id": "wumeng-grassland-photo",
+        "src": "/static/travel/assets/wumeng-grassland.webp",
+        "alt": "乌蒙大草原实景",
+        "caption": "乌蒙大草原实景",
+        "credit": "Huangdan2060",
+        "license": "CC BY 3.0",
+        "license_url": "https://creativecommons.org/licenses/by/3.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Wumeng_Prairie_Scenic_Area,_Panzhou,_Guizhou,_China25.jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "文旅部大众旅游服务·贵州",
+        "url": "https://lyfw.mct.gov.cn/site/special/province?pkey=guizhou&type=0"
+      },
+      {
+        "title": "乌蒙大草原景区购票公告",
+        "url": "https://movement.gzstv.com/news/detail/HWN8mA/"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://movement.gzstv.com/news/detail/HWN8mA/",
+      "mini_program": "乌蒙大草原",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "huangguoshu",
+    "parent_id": null,
+    "name": "黄果树瀑布",
+    "region": "安顺",
+    "county": "镇宁布依族苗族自治县",
+    "coordinates": {
+      "longitude": 105.6688,
+      "latitude": 25.9939,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 35,
+      "y": 61
+    },
+    "description": "瀑布群分布在多个游览区，安排接驳和步行时间。",
+    "images": [
+      {
+        "image_id": "huangguoshu-photo",
+        "src": "/static/travel/assets/huangguoshu.webp",
+        "alt": "黄果树瀑布实景",
+        "caption": "黄果树瀑布实景",
+        "credit": "Thehistorianisaac",
+        "license": "CC0",
+        "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Huangguoshu_waterfall1.jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "文旅部大众旅游服务·贵州",
+        "url": "https://lyfw.mct.gov.cn/site/special/province?pkey=guizhou&type=0"
+      },
+      {
+        "title": "黄果树旅游区预约提醒",
+        "url": "https://m.thepaper.cn/newsDetail_forward_33431546"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://m.thepaper.cn/newsDetail_forward_33431546",
+      "mini_program": "安旅通",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "zhijin-cave",
+    "parent_id": null,
+    "name": "织金洞",
+    "region": "毕节",
+    "county": "织金县",
+    "coordinates": {
+      "longitude": 105.8962,
+      "latitude": 26.7713,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 34,
+      "y": 42
+    },
+    "description": "洞内可看大型石笋和石柱，坡道和台阶较多。",
+    "images": [
+      {
+        "image_id": "zhijin-cave-photo",
+        "src": "/static/travel/assets/zhijin-cave.webp",
+        "alt": "织金洞实景",
+        "caption": "织金洞实景",
+        "credit": "Esiymbro",
+        "license": "CC BY-SA 4.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Inside_Zhijin_Cave_2019_01.jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "文旅部大众旅游服务·贵州",
+        "url": "https://lyfw.mct.gov.cn/site/special/province?pkey=guizhou&type=0"
+      },
+      {
+        "title": "织金洞景区预约须知",
+        "url": "https://www.gzstv.com/a/be80bcd573524f6e9e1e4b5dc58fb0a8"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://www.gzstv.com/a/be80bcd573524f6e9e1e4b5dc58fb0a8",
+      "mini_program": "一码游贵州",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "fanjingshan",
+    "parent_id": null,
+    "name": "梵净山",
+    "region": "铜仁",
+    "county": "江口县、印江县、松桃县",
+    "coordinates": {
+      "longitude": 108.68,
+      "latitude": 27.8955556,
+      "system": "WGS84",
+      "precision": "approximate",
+      "source_url": "https://whc.unesco.org/document/160545"
+    },
+    "map_position": {
+      "x": 76,
+      "y": 38
+    },
+    "description": "沿贵州武陵山脉入山，探访梵净山的林海、峰岩与山间步道。东、西门路线不同，预约时先确认入口。",
+    "images": [
+      {
+        "image_id": "fanjingshan-photo",
+        "src": "/static/travel/assets/fanjingshan.webp",
+        "alt": "梵净山实景",
+        "caption": "梵净山实景",
+        "credit": "Mande5255881",
+        "license": "CC BY-SA 3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:%E6%A2%B5%E6%B7%A8%E5%B1%B1%E7%B4%85%E9%9B%B2%E9%87%91%E9%A0%82%EF%BC%88%E6%96%B0%E9%87%91%E9%A0%82%EF%BC%89.jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "联合国教科文组织世界遗产",
+        "url": "https://whc.unesco.org/en/list/1559/"
+      },
+      {
+        "title": "景区购票须知",
+        "url": "https://fanjingshan.gz.cn/?page_id=1188"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://fanjingshan.gz.cn/?page_id=1188",
+      "mini_program": "一码游贵州",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "xijiang-miao-village",
+    "parent_id": null,
+    "name": "西江千户苗寨",
+    "region": "黔东南",
+    "county": "雷山县",
+    "coordinates": {
+      "longitude": 108.1758,
+      "latitude": 26.4949,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 67,
+      "y": 58
+    },
+    "description": "村寨依山而建，可步行看吊脚楼、风雨桥和河谷。",
+    "images": [
+      {
+        "image_id": "xijiang-miao-village-photo",
+        "src": "/static/travel/assets/xijiang-miao-village.webp",
+        "alt": "西江千户苗寨实景",
+        "caption": "西江千户苗寨实景",
+        "credit": "Popolon",
+        "license": "CC BY-SA 4.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Xijiang_Qianhu_Miaozhai.Skyline.jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "文旅部大众旅游服务·贵州",
+        "url": "https://lyfw.mct.gov.cn/site/special/province?pkey=guizhou&type=0"
+      },
+      {
+        "title": "西江千户苗寨景区预约提示",
+        "url": "https://movement.gzstv.com/news/detail/VE2z5/"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://movement.gzstv.com/news/detail/VE2z5/",
+      "mini_program": "一码游贵州",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "libo-xiaoqikong",
+    "parent_id": null,
+    "name": "荔波小七孔",
+    "region": "黔南",
+    "county": "荔波县",
+    "coordinates": {
+      "longitude": 107.6906,
+      "latitude": 25.2708,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 61,
+      "y": 77
+    },
+    "description": "沿喀斯特水景步行，可看古石桥和碧水峡谷。",
+    "images": [
+      {
+        "image_id": "libo-xiaoqikong-photo",
+        "src": "/static/travel/assets/libo-xiaoqikong.webp",
+        "alt": "荔波小七孔实景",
+        "caption": "荔波小七孔实景",
+        "credit": "Fanghong",
+        "license": "CC BY-SA 3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Xiaoqikong.JPG",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "联合国教科文组织世界遗产",
+        "url": "https://whc.unesco.org/en/list/1248/"
+      },
+      {
+        "title": "小七孔景区官方预约渠道公告",
+        "url": "https://www.gzstv.com/a/080110c72aa14deba503ad654b06fb21"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://www.gzstv.com/a/080110c72aa14deba503ad654b06fb21",
+      "mini_program": "云游荔波",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "wanfenglin",
+    "parent_id": null,
+    "name": "万峰林",
+    "region": "黔西南",
+    "county": "兴义市",
+    "coordinates": {
+      "longitude": 104.9002,
+      "latitude": 25.0177,
+      "system": "WGS84",
+      "precision": "approximate"
+    },
+    "map_position": {
+      "x": 26,
+      "y": 76
+    },
+    "description": "峰丛、农田与布依村寨相连，可按步行或骑行偏好安排。",
+    "images": [
+      {
+        "image_id": "wanfenglin-photo",
+        "src": "/static/travel/assets/wanfenglin.webp",
+        "alt": "万峰林实景",
+        "caption": "万峰林实景",
+        "credit": "名字长的让人受不了",
+        "license": "CC BY-SA 4.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:WanFengLin-ShangNaHui2025-08.jpg",
+        "changes": "缩放并转为 WebP；网页封面按版式裁切"
+      }
+    ],
+    "sources": [
+      {
+        "title": "文旅部大众旅游服务·贵州",
+        "url": "https://lyfw.mct.gov.cn/site/special/province?pkey=guizhou&type=0"
+      },
+      {
+        "title": "万峰林景区实名预约公告",
+        "url": "https://wanfenglin.cn/jingqugonggao/1781.html"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://wanfenglin.cn/jingqugonggao/1781.html",
+      "mini_program": "万峰林景区",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "fanjingshan-east",
+    "parent_id": "fanjingshan",
+    "name": "梵净山东门",
+    "region": "铜仁",
+    "county": "江口县",
+    "coordinates": {
+      "longitude": 108.7704414,
+      "latitude": 27.8469486,
+      "system": "WGS84",
+      "precision": "mapped_entrance",
+      "source_url": "https://www.openstreetmap.org/node/7491137369"
+    },
+    "map_position": null,
+    "description": "江口方向的景区入口，预约时核对所选方向与交通接驳。",
+    "images": [],
+    "sources": [
+      {
+        "title": "景区购票须知",
+        "url": "https://fanjingshan.gz.cn/?page_id=1188"
+      },
+      {
+        "title": "高德地图·梵净山风景区东门",
+        "url": "https://www.amap.com/place/B0FFKFH5Y2"
+      },
+      {
+        "title": "OpenStreetMap 贡献者·入口点位",
+        "url": "https://www.openstreetmap.org/node/7491137369"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://fanjingshan.gz.cn/?page_id=1188",
+      "mini_program": "一码游贵州",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "fanjingshan-west",
+    "parent_id": "fanjingshan",
+    "name": "梵净山西门",
+    "region": "铜仁",
+    "county": "印江土家族苗族自治县",
+    "coordinates": {
+      "longitude": 108.638822,
+      "latitude": 27.915383,
+      "system": "WGS84",
+      "precision": "mapped_entrance",
+      "source_url": "https://www.openstreetmap.org/node/3884471199"
+    },
+    "map_position": null,
+    "description": "印江方向的景区入口，和东门分属不同路线，预约前核对开放情况。",
+    "images": [],
+    "sources": [
+      {
+        "title": "景区购票须知",
+        "url": "https://fanjingshan.gz.cn/?page_id=1188"
+      },
+      {
+        "title": "高德地图·梵净山西门停车场",
+        "url": "https://www.amap.com/place/B0H1DCNP2V"
+      },
+      {
+        "title": "OpenStreetMap 贡献者·入口点位",
+        "url": "https://www.openstreetmap.org/node/3884471199"
+      }
+    ],
+    "booking": {
+      "type": "official_mini_program",
+      "url": "https://fanjingshan.gz.cn/?page_id=1188",
+      "mini_program": "一码游贵州",
+      "verified_at": "2026-11-19"
+    },
+    "reviewed_at": "2026-11-19"
+  }
+]

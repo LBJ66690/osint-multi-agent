@@ -12,9 +12,8 @@
     verifying: ['核查中', 'checking', '正在核查报告。先别急着下结论，看看依据和局限。']
   };
   let root, snapshot = {}, stateKey = '', lastMessage = '', lastBroadcast = 0;
-  let queueTimer, queued = null, cuddleTimer, interactionText = '', pets = 0, lastPet = -Infinity;
+  let queueTimer, queued = null;
   let collapsed = false, collapsePreference = null, announcements = true, voiceOn = false, utterance = null, welcomeLayout = false;
-  let pointer = null, suppressClickUntil = 0;
   const seenCalls = new Map();
   const narrow = matchMedia('(max-width: 950px)');
   const read = key => { try { return localStorage.getItem(key); } catch { return null; } };
@@ -48,15 +47,14 @@
     if (note) $('#fish-note').textContent = note;
   }
   function renderBubble() {
-    const text = interactionText || (announcements ? lastMessage : '进度播报已暂停，我陪你安静摸鱼～');
+    const text = announcements ? lastMessage : '进度播报已暂停。';
     const bubble = $('#fish-bubble');
     if (bubble.textContent !== text) bubble.textContent = text;
   }
   function clearQueue() { clearTimeout(queueTimer); queueTimer = null; queued = null; }
-  function broadcast(text, {urgent = false, audible = true} = {}) {
+  function broadcast(text, {audible = true} = {}) {
     clearQueue();
     lastMessage = text;
-    if (urgent) { interactionText = ''; }
     renderBubble(); lastBroadcast = Date.now();
     if (audible) speak(text);
   }
@@ -72,7 +70,7 @@
     }, delay);
   }
   function describe(data) {
-    if (!data.id) return {status: '待命 · 陪你研究', mood: 'idle', text: '我是大肥鱼，研究进度我来盯。先摸摸我，沾点灵感～'};
+    if (!data.id) return {status: '待命 · 陪你研究', mood: 'idle', text: '你好，我是小岚。研究开始后，我会跟进任务进度。'};
     if (data.status === 'done') return {status: '研究已完成', mood: 'celebrate', text: data.reports ? '报告送到啦！记得一起查看引用来源和核查记录。' : '这次研究已结束，阶段产出可以回看啦。', go: data.reports ? 'report' : ''};
     if (data.status === 'error') return {status: '研究暂时中断', mood: 'worried', text: '研究碰到一点问题。先看看错误提示，我们再决定怎么继续。', go: 'error'};
     if (data.status === 'cancelled') return {status: '任务已停止', mood: 'idle', text: '这次任务已停止，我先陪你休息一会儿～'};
@@ -87,8 +85,8 @@
     if (!root || !data || typeof data !== 'object') return;
     const switched = data.id !== snapshot.id;
     if (switched) {
-      clearQueue(); clearTimeout(cuddleTimer); stopSpeech();
-      seenCalls.clear(); interactionText = ''; root.classList.remove('is-petted');
+      clearQueue(); stopSpeech();
+      seenCalls.clear();
     }
     snapshot = data;
     const info = describe(data);
@@ -101,7 +99,7 @@
     if (key !== stateKey) {
       stateKey = key;
       // Opening a saved task must not replay its historical announcements.
-      broadcast(info.text, {urgent: true, audible: !switched});
+      broadcast(info.text, {audible: !switched});
     }
   }
   function effect(event) {
@@ -123,7 +121,7 @@
     } else if (event.type === 'report' && snapshot.current === 'reporting') {
       queue('一份报告已经生成，还要留意后续核查结果哦。');
     } else if (event.type === 'resumed') {
-      broadcast('从断点继续啦！我会跟着实际恢复的阶段播报。', {urgent: true});
+      broadcast('从断点继续啦！我会跟着实际恢复的阶段播报。');
     }
   }
   function setCollapsed(value) {
@@ -132,23 +130,8 @@
     $('#fish-details').hidden = value;
     $('#fish-collapse').setAttribute('aria-expanded', String(!value));
     $('#fish-collapse').textContent = value ? '展开 ＋' : '收起 −';
-    $('#fish-collapse').title = value ? '展开大肥鱼' : '收起大肥鱼';
+    $('#fish-collapse').title = value ? '展开导游' : '收起导游';
     if (value) stopSpeech();
-  }
-  function pet() {
-    const now = performance.now();
-    if (now - lastPet < 650) return;
-    lastPet = now; pets = Math.min(pets + 1, 999);
-    $('#fish-affection').textContent = `♡ ${pets}`;
-    $('#fish-affection').setAttribute('aria-label', `已抚摸 ${pets} 次`);
-    root.classList.remove('is-petted'); void root.offsetWidth; root.classList.add('is-petted');
-    const critical = snapshot.pending || ['error', 'done', 'cancelled'].includes(snapshot.status);
-    if (!critical) {
-      interactionText = ['咕噜～被你摸得圆了一点点。', '尾巴摇摇，灵感冒泡！', '收到一份摸摸，心情加满啦～'][ (pets - 1) % 3 ];
-      renderBubble();
-    }
-    clearTimeout(cuddleTimer);
-    cuddleTimer = setTimeout(() => { root.classList.remove('is-petted'); interactionText = ''; renderBubble(); }, 1800);
   }
   function mount() {
     root = $('#research-pet'); if (!root) return;
@@ -158,7 +141,7 @@
     lastMessage = $('#fish-bubble').textContent;
     setCollapsed(collapsePreference ?? narrow.matches); renderBubble();
     // Stick the whole column only when it fits. Short windows use ordinary
-    // page scrolling so the fish and its controls always remain reachable.
+    // page scrolling so the guide and its controls always remain reachable.
     const column = $('.workflow-column');
     if (column) {
       const fit = () => column.classList.toggle('fish-column-fits', !narrow.matches && column.offsetHeight <= window.innerHeight - 48);
@@ -173,7 +156,7 @@
       announcements = !announcements; save('osint-fish-announcements', announcements);
       $('#fish-announcements').setAttribute('aria-pressed', String(announcements));
       $('#fish-announcements').textContent = announcements ? '播报：开' : '播报：关';
-      interactionText = ''; renderBubble();
+      renderBubble();
       if (!announcements) stopSpeech();
     };
     $('#fish-voice').onclick = () => {
@@ -191,31 +174,19 @@
       window.speechSynthesis?.addEventListener?.('voiceschanged', () => {
         if (!voiceOn && localVoice() && $('#fish-note').textContent.includes('未找到本地中文语音')) $('#fish-note').textContent = '本地中文语音已就绪，点击“语音”手动开启';
       });
-    } catch { /* Voice is optional; the fish still reports with text. */ }
+    } catch { /* Voice is optional; the guide still reports with text. */ }
     $('#fish-go').onclick = () => {
       const action = $('#fish-go').dataset.action;
       if (action === 'report') $('#btn-open-report')?.click();
       if (action === 'pending') $('#btn-pending')?.click();
       if (action === 'error') $('#error-banner')?.scrollIntoView({block: 'center', behavior: 'instant'});
     };
-    const target = $('#fish-stroke');
-    target.addEventListener('pointerdown', e => { if (e.button === 0) pointer = {id: e.pointerId, x: e.clientX, y: e.clientY, moved: false}; });
-    target.addEventListener('pointermove', e => {
-      if (!pointer || pointer.id !== e.pointerId) return;
-      const dx = Math.abs(e.clientX - pointer.x), dy = Math.abs(e.clientY - pointer.y);
-      // Horizontal rubbing works on touch; vertical movement remains page scroll.
-      if (dx > 18 && (e.pointerType !== 'touch' || dx > dy * 1.4)) {
-        pet(); pointer.x = e.clientX; pointer.y = e.clientY; pointer.moved = true;
-      }
-    });
-    target.addEventListener('pointerup', () => { if (pointer?.moved) suppressClickUntil = Date.now() + 500; pointer = null; });
-    for (const name of ['pointercancel', 'pointerleave']) target.addEventListener(name, () => { if (pointer?.moved) suppressClickUntil = Date.now() + 500; pointer = null; });
-    target.addEventListener('click', e => { if (e.detail === 0 || Date.now() >= suppressClickUntil) pet(); });
+    $('#fish-stroke').onclick = () => { $('#task-input')?.focus(); };
     document.addEventListener('visibilitychange', () => { if (document.hidden) stopSpeech(); });
     // A confirmation or chat dialog should never compete with voice narration.
     const observer = new MutationObserver(records => { if (records.some(r => r.target.classList.contains('modal-overlay') && !r.target.classList.contains('hidden'))) stopSpeech(); });
     document.querySelectorAll('.modal-overlay').forEach(modal => observer.observe(modal, {attributes: true, attributeFilter: ['class']}));
-    window.addEventListener('pagehide', () => { clearQueue(); clearTimeout(cuddleTimer); interactionText = ''; root.classList.remove('is-petted'); stopSpeech(); });
+    window.addEventListener('pagehide', () => { clearQueue(); stopSpeech(); });
   }
   document.addEventListener('DOMContentLoaded', mount);
   document.addEventListener('osint:layout', e => { welcomeLayout=e.detail?.mode==='welcome'; if(root){setCollapsed(collapsePreference ?? narrow.matches);if(welcomeLayout)stopSpeech();} });

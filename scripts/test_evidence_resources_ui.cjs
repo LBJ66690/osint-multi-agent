@@ -34,8 +34,10 @@ const records={
  await page.route('**/*',async route=>{
   const request=route.request(),url=new URL(request.url()),json=value=>route.fulfill({json:value});
   if(url.origin!=='http://evidence.test'){unexpected.push(url.href);return route.abort();}
-  if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/index.html'),'utf8')});
+  if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/workspace.html'),'utf8')});
+    if (url.pathname.endsWith('.svg')) return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(root,url.pathname),'utf8')});
   if(url.pathname.startsWith('/static/'))return route.fulfill({contentType:url.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(url.pathname)),'utf8')});
+  if (url.pathname === '/api/auth/me') return route.fulfill({status:404,json:{detail:'Not Found'}});
   if(url.pathname==='/api/health')return json({has_key:true});
   if(url.pathname==='/api/models')return json(models);
   if(url.pathname==='/api/model-recommendation')return json({mode:'standard',label:'标准研究',role_models:models.role_profiles.standard,reasons:{}});

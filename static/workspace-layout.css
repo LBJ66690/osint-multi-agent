@@ -46,7 +46,7 @@
 
 /* A single compact mission card replaces the separated title + topology rows. */
 .dashboard-view .workspace { padding-top:20px; }
-.workspace-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:13px 20px; padding:18px 20px 14px; margin:0 0 14px; border:1px solid #304c64; border-radius:14px; background:linear-gradient(110deg,#11273b,#0c192a); }
+.workspace-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:13px 20px; padding:16px 20px 12px; margin:0 0 14px; border:1px solid #304c64; border-radius:14px; background:linear-gradient(110deg,#11273b,#0c192a); }
 .mission-heading-copy { min-width:0; }
 .mission-heading-label { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .mission-heading-label .section-kicker { font-size:9px; letter-spacing:1.2px; }

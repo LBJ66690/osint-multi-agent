@@ -3,8 +3,8 @@
   font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
   --auth-ink: #253831;
   --auth-muted: #586860;
-  --auth-accent: #2f644f;
-  --auth-border: #d6dfd8;
+  --auth-accent: #155d46;
+  --auth-border: #d7e6dc;
 }
 
 .auth-page {
@@ -15,15 +15,15 @@
   padding: 28px;
   box-sizing: border-box;
   color: var(--auth-ink);
-  background: #f8f5ed;
+  background: #f5faf7;
 }
 
 .auth-layout {
   width: min(100%, 840px);
   display: grid;
   grid-template-columns: .92fr 1.08fr;
-  background: #fffdfa;
-  border: 1px solid #e0ded3;
+  background: #fff;
+  border: 1px solid #d7e6dc;
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 24px 70px rgba(44, 57, 46, .10);
@@ -36,7 +36,7 @@
   justify-content: space-between;
   gap: 44px;
   padding: 44px 42px;
-  background: #e3ece2;
+  background: #e7f5ef;
 }
 
 .auth-brand {

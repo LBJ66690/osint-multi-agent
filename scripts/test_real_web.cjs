@@ -4,7 +4,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),path
  const browser=await chromium.launch({headless:true,executablePath:process.env.OSINT_TEST_BROWSER});
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
-  await page.goto('http://127.0.0.1:8890');await page.waitForFunction(()=>!document.querySelector('#btn-run').disabled);
+  await page.goto('http://127.0.0.1:8890/?workspace=research');await page.waitForFunction(()=>!document.querySelector('#btn-run').disabled);
   assert.equal(await page.locator('#research-pet').getAttribute('data-mood'),'idle');
   await page.locator('#execution-mode').selectOption('deep');await page.locator('#task-input').fill('完整浏览器联调验收');await page.locator('#btn-run').click();
   await page.locator('#confirm-modal').waitFor({state:'visible'});await page.locator('#confirm-feedback').fill('请保持固定测试范围');await page.locator('#btn-confirm-edit').click();

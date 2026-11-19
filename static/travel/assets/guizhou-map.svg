@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 465" preserveAspectRatio="none">
+  <defs>
+    <pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M26 0H0V26" fill="none" stroke="#d5e6d8" stroke-width="0.8"/></pattern>
+    <linearGradient id="terrain" x2="0" y2="1"><stop stop-color="#c9e5cc"/><stop offset="1" stop-color="#a7d1b4"/></linearGradient>
+    <path id="outline" d="M49 268L60 244 79 239 96 202 117 199 133 160 154 151 171 115 203 122 226 96 242 95 262 54 287 57 308 73 322 52 360 61 387 44 411 69 433 61 457 87 477 81 491 117 524 133 559 122 577 147 562 177 593 197 575 225 558 230 582 260 564 283 575 309 538 332 506 327 493 353 458 359 435 388 405 382 384 412 350 401 326 421 298 401 265 406 243 384 216 389 193 363 155 375 132 340 104 342 112 311 76 306 78 285Z"/>
+    <clipPath id="clip"><use href="#outline"/></clipPath>
+  </defs>
+  <rect width="640" height="465" fill="#eef6ed"/><rect width="640" height="465" fill="url(#grid)"/>
+  <use href="#outline" fill="url(#terrain)" stroke="#73a78d" stroke-width="2"/>
+  <g clip-path="url(#clip)" fill="none">
+    <g stroke="#83b49a" stroke-width="1" opacity=".55">
+      <path d="M51 235Q144 162 202 220T340 193T484 189T628 148M49 247Q145 174 201 232T340 205T479 205T628 163M48 260Q145 188 201 244T340 218T484 220T632 177M39 276Q145 200 201 257T340 232T484 236T629 198"/>
+      <path d="M30 368Q144 294 239 353T405 328T630 291M30 381Q144 307 239 366T405 341T630 304M30 394Q144 320 239 379T405 354T630 317"/>
+    </g>
+    <g stroke="#f3fcf5" stroke-width="2" stroke-dasharray="3 5">
+      <path d="m244 89 28 58-13 57-43 45-74 10-68-13m182-44 65 13 38-46-17-117m-72 96 68-6 44 13 49-37 63 6m-132 45 29 58 68 16 110-46m-174 28-28 64 33 94m-37-94-68 12-37 98m44-97-45-55-42-6m-8 7 8 65-32 46m228-145 10 61-35 39 27 55m-29-56 81-17 54 16"/>
+    </g>
+    <path d="M108 339q38-35 88-30t103-42q26-19 59-20 41 3 68-40t105-58" stroke="#79b4b3" stroke-width="2.5" opacity=".7"/>
+  </g>
+</svg>

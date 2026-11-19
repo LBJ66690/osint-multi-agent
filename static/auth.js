@@ -69,7 +69,7 @@
 
   if (registering) {
     title.textContent = '创建工作台账号';
-    document.title = '账号注册 · 情报指挥台';
+    document.title = '账号注册 · 贵州山水';
     password.autocomplete = 'new-password';
     password.minLength = 12;
     password.setAttribute('aria-describedby', 'password-hint');
