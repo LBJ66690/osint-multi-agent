@@ -193,6 +193,7 @@ class RunState:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "report_count": len(self.reports),
+            "domain": "guizhou_travel" if self.travel else None,
             "execution_mode": self.execution_mode,
             "search_strategy": self.search_strategy,
         }

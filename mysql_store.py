@@ -168,7 +168,7 @@ class MySQLStore:
         with self.cursor() as cursor:
             cursor.execute("""
                 SELECT id, task, model_id, status, execution_mode, search_strategy,
-                       report_count, created_at, updated_at
+                       report_count, created_at, updated_at, JSON_UNQUOTE(JSON_EXTRACT(summary, '$.domain')) AS domain
                 FROM osint_runs WHERE owner_id = %s ORDER BY created_at DESC, id DESC LIMIT 100
             """, (owner_id,))
             return [self._format_run(row) for row in cursor.fetchall()]
