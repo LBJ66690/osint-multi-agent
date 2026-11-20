@@ -28,17 +28,12 @@ export function setupRuns(request, events, report, refreshBalance) {
   function view(message, options = {}) {
     $('progress').hidden = false;
     $('run-status').textContent = labels[run.status] || '等待服务端状态';
-    show('run-message', message || '');
+    show('run-message', '');
     $('cancel').hidden = run.status === 'loading' || final.has(run.status);
     $('resume').hidden = !['error', 'cancelled'].includes(run.status) || run.resumable === false;
     document.dispatchEvent(new CustomEvent('osint:view', {detail: {
       domain, id: run.id, status: run.status, message, ...options,
     }}));
-  }
-  function progressLine(message, dataMode) {
-    if (!message) return;
-    $('activity').prepend(make('li', message + (dataMode === 'cache' ? ' · 缓存' : dataMode === 'fixture' ? ' · 回放' : '')));
-    if ($('activity').children.length > 25) $('activity').lastElementChild.remove();
   }
   function initialize(id, status) {
     closeStream();
@@ -46,7 +41,7 @@ export function setupRuns(request, events, report, refreshBalance) {
     run = {id, status, last: -1, calls: new Set(), resumable: true, emptyEnds: 0};
     report.clear();
     if (status !== 'loading') rememberRoute(id);
-    $('activity').replaceChildren();
+    $('view-report').hidden=true;
     $('reload-run').hidden = status !== 'loading';
     return nonce;
   }
@@ -65,9 +60,6 @@ export function setupRuns(request, events, report, refreshBalance) {
       const key = JSON.stringify([event.call_id, event.type]);
       if (run.calls.has(key)) return;
       run.calls.add(key);
-    }
-    if (event.type.startsWith('tool_') || ['stage_start', 'stage', 'resumed', 'error', 'cancelled'].includes(event.type)) {
-      progressLine(eventText(event), event.data_mode);
     }
     if (snapshot) return;
     if (['tool_call', 'tool_result', 'tool_error'].includes(event.type)) {
@@ -131,7 +123,7 @@ export function setupRuns(request, events, report, refreshBalance) {
       run.resumable = detail.resume_info?.unavailable !== true;
       $('reload-run').hidden = true;
       if (detail.status === 'done') {
-        report.showReport(detail);
+        report.offer(detail);
         view('旅行报告已完成，可以查看路线、预算和来源。', {snapshot: !followStream, completed: true});
       } else if (detail.status === 'error') {
         view(detail.error?.message || detail.summary?.error?.message || '任务运行失败，可查看进度和恢复选项。', {snapshot: true});
@@ -175,7 +167,7 @@ export function setupRuns(request, events, report, refreshBalance) {
       for (const row of data.runs || []) {
         if ((row.domain ?? row.summary?.domain) !== domain || !(row.id || row.run_id)) continue;
         const item = make('li');
-        item.append(button(`${row.task || '旅行任务'} · ${labels[row.status] || row.status}`, async () => {
+        item.append(button(`${(row.task || '旅行任务').replace(/^帮我拟一个|^帮我拟一份/,'').replace(/的旅游计划。?$/,'')} · ${labels[row.status] || row.status}`, async () => {
           await open(row.id || row.run_id);
           $('progress').scrollIntoView({block: 'start'});
         }, 'text-button'));

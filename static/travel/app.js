@@ -20,7 +20,8 @@ const fieldLabels = {
   budget_scope: '预算口径', include_round_trip: '往返费用范围', poi_ids: '目的地', ticket_fields: '票面信息',
 };
 
-if (params.get('workspace') !== 'research') void init();
+void init();
+
 
 function getDates() {
   const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Shanghai', dateStyle: 'short'}).formatToParts(new Date());
@@ -76,6 +77,29 @@ async function init() {
     },
   });
   const report = setupReport(request, catalog, !!demo);
+  window.addEventListener('popstate',()=>{
+    const id=new URLSearchParams(location.search).get('travel_report');
+    if (!demo || params.has('travel_report')) return location.reload();
+    if(id){
+      const saved=JSON.parse(sessionStorage.getItem('travel-demo-report')||'null');
+      if(saved?.id===id)report.showReport(saved);
+    } else {
+      report.clear();
+      document.documentElement.classList.remove('journal-mode');
+      document.title='贵州山水';
+    }
+  });
+  if(params.has('travel_report')){
+    try {
+      for(const [id,poi] of await loadCatalog()) catalog.set(id,poi);
+      const rid=params.get('travel_report');
+      const detail=demo?JSON.parse(sessionStorage.getItem('travel-demo-report')||'null'):await request('/api/runs/'+encodeURIComponent(rid));
+      if(!detail || detail.id!==rid || detail.status!=='done')throw new Error('这份报告暂不可读，请返回旅行记录。');
+      report.showReport(detail);
+      void account.load();
+    } catch(error){show('notice',error.message);}
+    return;
+  }
   const runs = setupRuns(request, events, report, account.refresh);
   const input = $('task');
   const form = $('draft-form');
@@ -176,6 +200,9 @@ async function init() {
         }
       }, 'primary');
       area.append(start);
+      $('progress').hidden=false;
+      document.dispatchEvent(new CustomEvent('osint:view',{detail:{domain:'guizhou_travel',message:'草稿已准备好，确认日期和人数后，我来为你整理行程。'}}));
+      document.dispatchEvent(new Event('travel:preview'));
     } catch (error) {
       if (attempt !== version) return;
       if (error.status === 401) sessionExpired();

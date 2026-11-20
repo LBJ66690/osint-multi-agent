@@ -175,7 +175,7 @@ async function demoFlow(browser, url, errors) {
   await page.locator('#motion').click();
   assert.equal(await page.locator('#motion').getAttribute('aria-pressed'), 'true');
   await startSample(page);
-  await waitText(page, '#activity', '东门接驳路线');
+  assert.equal(await page.locator('#activity').count(), 0);
   const runURL = page.url();
   const draft = await page.locator('#task').inputValue();
   await page.locator('#guide-select').selectOption('ahe');
@@ -183,20 +183,21 @@ async function demoFlow(browser, url, errors) {
   assert.equal(await page.locator('#task').inputValue(), draft);
   await screenshot(page, 'desktop-guide.png', '#progress');
   await waitText(page, '#run-status', '已完成');
+  await page.locator('#view-report').click();
   assert.equal(await page.locator('#report-mode').textContent(), '样例回放');
   assert.equal(await page.locator('#guide').getAttribute('data-action'), 'itinerary');
   assert.match(await page.locator('#report-body').textContent(), /江口县|1,890/);
-  await page.locator('#report-body').getByText('事实来源', {exact: true}).last().click();
-  await page.locator('#report-body').getByRole('link', {name: /E1 梵净山/}).last().waitFor();
+  await page.locator('#report-body').getByText('查看依据与待确认事项', {exact: true}).last().click();
+  await page.locator('#report-body').getByRole('link', {name: /E1.*梵净山/}).last().waitFor();
   assert.match(await page.locator('#report-body').getByRole('link', {name: /查看官方预约方式/}).getAttribute('href'), /fanjingshan\.gz\.cn/);
   await screenshot(page, 'desktop-report.png', '#report');
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#download').click()]);
-  assert.match(download.suggestedFilename(), /样例回放\.md/);
+  assert.equal(await page.locator('#download').isVisible(), false);
   await page.locator('#open-chat').click();
   await page.locator('#question').fill('从哪里预约？');
   await page.locator('#ask').click();
   await waitText(page, '#chat-turns', '样例回答');
   await page.locator('#chat-dialog [data-close]').click();
+  await page.goBack();
   await page.locator('#history-list button').first().click();
   await waitText(page, '#run-status', '已完成');
   await waitText(page, '#credits', '已用 1 次');
@@ -242,6 +243,7 @@ async function mobileFlow(browser, url, errors) {
   await startSample(page);
   await page.locator('#guide-select').selectOption('xiaolan');
   await waitText(page, '#run-status', '已完成');
+  await page.locator('#view-report').click();
   await screenshot(page, 'mobile-report.png', '#report');
   await waitWidth(page);
   await page.close();
@@ -310,12 +312,14 @@ async function liveFixtureFlow(browser, url, runtime, errors) {
   assert.equal(runtime.runs[0].body.trip.budget_fen, 200000);
   assert.deepEqual(runtime.connections.slice(0, 2), [{last: undefined, after: '-1'}, {last: '0', after: '-1'}]);
   assert.equal(await page.evaluate(() => window.travelEffects.filter(event => event.call_id === 'q1').length), 1);
-  await waitText(page, '#activity', '江口预报待查');
+  assert.equal(await page.locator('#activity').count(), 0);
   await page.locator('#resume').click();
   await waitText(page, '#run-status', '已完成');
+  await page.locator('#view-report').click();
   await waitText(page, '#report-body', '已恢复的行程');
   await waitText(page, '#report-body', '上限待查');
-  assert.match(await page.locator('#download').getAttribute('href'), /live-fixture\/report\.md/);
+  assert.equal(await page.locator('#download').isVisible(), false);
+  await page.goBack();
   const stableRun = page.url();
   runtime.stale();
   await page.reload();
@@ -354,7 +358,7 @@ async function main() {
     assert.match(workbench.url(), /static\/workspace\.html/);
     await workbench.close();
     assert.deepEqual(errors, []);
-    console.log('TRAVEL UI PASS: desktop + mobile playback, fallback map/image, keyboard, guide switch, report/chat/download, credits/orders, redaction/correction, idempotency, native SSE reconnect/dedup, failure/resume, historical reopen.');
+    console.log('TRAVEL UI PASS: desktop + mobile playback, fallback map/image, keyboard, guide switch, report navigation and chat, credits/orders, redaction/correction, idempotency, native SSE reconnect/dedup, failure/resume, historical reopen.');
   } finally {
     await browser?.close();
     server.closeAllConnections();

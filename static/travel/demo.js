@@ -16,6 +16,10 @@ const tripPlan = {
   budget: {known_lower_fen: 124000, upper_fen: 189000, status: 'ready',
     lines: [{label: '往返及接驳', lower_fen: 48000, upper_fen: 72000},
       {label: '住宿、餐费及门票', lower_fen: 76000, upper_fen: 117000}]},
+  railway: {'铜仁站': [{start_train_code:'演示车次',start_date:'2026-11-20',from_station:'贵阳北',to_station:'铜仁',start_time:'08:00',arrive_time:'09:45',prices:[{seat_name:'二等座',price:149,num:'样例有票'}]}]},
+  weather: [{location:'江口县',data_mode:'fixture',days:[{date:'2026-11-21',weather_code:3,temperature_2m_min:8,temperature_2m_max:16,precipitation_probability_max:35,precipitation_sum:0.4,sunrise:'2026-11-21T07:12',sunset:'2026-11-21T17:51',hours:[
+    {time:'2026-11-21T12:00',temperature_2m:16,apparent_temperature:15,relative_humidity_2m:69,weather_code:3},
+    {time:'2026-11-21T21:00',temperature_2m:10,apparent_temperature:9,relative_humidity_2m:80,weather_code:2}]}]}],
   weather_alternatives: [{date: '2026-11-21', location: '江口县', text: '若步道受降雨影响，改为江口县内的室内活动，出发前复查公告。', evidence_ids: ['E2']}],
   booking_entries: [{poi_id: 'fanjingshan-east'}],
   media: [{poi_id: 'fanjingshan', image_id: 'fanjingshan-photo'}],

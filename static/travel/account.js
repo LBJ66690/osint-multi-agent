@@ -9,11 +9,14 @@ export function setupAccount(request, {demo, sku, applyProfile, outOfSession}) {
   const controls = ['login', 'register', 'logout', 'open-profile', 'open-order'];
   const statuses = {pending: '待完成', success: '成功', failed: '失败', cancelled: '已取消'};
   function setControls(signedIn) {
+    $('account-entry').textContent=signedIn?'我的账号':'登录';
+    $('account-entry').href=signedIn?(document.documentElement.classList.contains('journal-mode')?'/#account':'#account'):'/login';
     for (const id of controls) $(id).hidden = ['login', 'register'].includes(id) ? signedIn : !signedIn;
     $('logout').hidden ||= demo;
   }
   function showBalance(data) {
     const balance = data?.balance || data;
+    if(balance?.unlimited){$('credits').textContent='测试管理员 · 不限次数';return;}
     const available = balance?.available;
     const reserved = balance?.reserved;
     const used = balance?.used;

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/static/travel/travel.css">
   <link rel="stylesheet" href="/static/travel/atlas.css">
   <script type="module" src="/static/travel/app.js"></script>
+<link rel="stylesheet" href="/static/travel/journey.css">
 </head>
 <body>
   <a class="skip" href="#planner">跳到行程规划</a>
@@ -17,13 +18,14 @@
     <nav aria-label="页面导航">
       <a href="#discover">找景点</a><a href="#planner">规划行程</a><a href="#history">旅行记录</a>
     </nav>
+    <a id="account-entry" class="button" href="/login">登录</a>
     <a class="workbench" href="/?workspace=research">通用研究工作台 ↗</a>
   </div></header>
   <main class="wrap">
     <section class="intro" aria-labelledby="title">
-      <div><p class="eyebrow">贵州旅行规划</p><h1 id="title">从贵州的山水出发</h1><p>在地图上挑一个目的地，再把时间、预算和想去的地方交给导游。</p></div>
+      <div><p class="eyebrow">贵州旅行规划</p><h1 id="title">从贵州的山水出发</h1><p>选景点 → 填需求 → 确认行程 → 看报告</p></div>
       <div class="intro-tools">
-        <div class="weather"><span id="weather-icon" aria-hidden="true">☁</span><div><strong id="weather">贵阳 · 天气待查</strong><small id="weather-time">天气实况</small></div></div>
+        <div class="weather"><span id="weather-icon" aria-hidden="true">☁</span><div><strong id="weather">贵阳 · 天气待查</strong><small id="weather-time">等待天气资料</small></div></div>
         <a id="demo-link" href="/?demo=travel">体验样例回放</a>
       </div>
     </section>
@@ -105,7 +107,7 @@
       <div class="panel-head"><h2 id="progress-title">行程进度</h2><span id="run-status" role="status"></span></div>
       <p id="run-message"></p>
       <div id="progress-guide"></div>
-      <ol id="activity" class="activity" aria-label="任务事件"></ol>
+      <a id="view-report" class="button primary" hidden>查看报告 →</a>
       <div class="actions"><button type="button" id="cancel" hidden>取消任务</button><button type="button" id="resume" hidden>从断点继续</button><button type="button" id="reload-run" hidden>重新读取进度</button></div>
     </section>
     <section class="panel section" id="report" aria-labelledby="report-title" hidden>
@@ -114,7 +116,7 @@
       <div class="actions"><a class="button" id="download" download>下载报告</a><button type="button" id="open-chat" hidden>就报告提问</button></div>
     </section>
     <div class="secondary-grid">
-      <section class="panel section" aria-labelledby="account-title">
+      <section id="account" class="panel section" aria-labelledby="account-title">
         <div class="panel-head"><h2 id="account-title">账号与额度</h2><span id="account-name"></span></div>
         <p id="credits">正在读取账户信息…</p>
         <div class="actions"><a id="login" class="button" href="/login">登录</a><a id="register" href="/register">注册</a><button type="button" id="open-profile" hidden>旅行偏好</button><button type="button" id="open-order" hidden>模拟购买</button><button type="button" id="logout" hidden>退出登录</button></div>

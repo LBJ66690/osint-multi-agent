@@ -20,7 +20,7 @@ export function setupGuide() {
   const image = $('guide-image');
   const guide = $('guide');
   const speech = $('voice');
-  let voiceOn = false;
+  let voiceOn = getSetting('travel-guide-voice') === 'true';
   let utterance;
   let lastText = $('guide-message').textContent;
   let backgroundAction = 'idle';
@@ -35,6 +35,7 @@ export function setupGuide() {
   }
   function setVoice(enabled, title) {
     voiceOn = enabled;
+    if (!title) setSetting('travel-guide-voice', enabled);
     speech.setAttribute('aria-pressed', String(enabled));
     speech.textContent = title || (enabled ? '语音：开' : '语音：关');
     if (!enabled) stop();
@@ -72,7 +73,8 @@ export function setupGuide() {
     const action = foregroundAction || backgroundAction;
     guide.dataset.action = action;
     const prop = $('guide-prop');
-    if (!actions.has(action)) {
+    const propId = {preview:'notes', briefing:'itinerary'}[action] || action;
+    if (!actions.has(propId)) {
       prop.replaceChildren();
       return;
     }
@@ -80,7 +82,7 @@ export function setupGuide() {
     const svg = document.createElementNS(namespace, 'svg');
     const use = document.createElementNS(namespace, 'use');
     svg.setAttribute('viewBox', '0 0 42 42');
-    use.setAttribute('href', '/static/travel/assets/guide-props.svg#' + action);
+    use.setAttribute('href', '/static/travel/assets/guide-props.svg#' + propId);
     svg.append(use);
     prop.replaceChildren(svg);
   }
@@ -97,17 +99,20 @@ export function setupGuide() {
     $('guide-message').textContent = text;
     if (audible) speak(text);
   }
+  setVoice(voiceOn);
   const saved = getSetting('travel-guide');
   if (Object.hasOwn(people, saved)) $('guide-select').value = saved;
   setPerson();
   $('guide-select').addEventListener('change', () => { stop(); setPerson(); });
   $('guide-greet').addEventListener('click', () => {
-    action('wave');
-    $('task').focus();
+    const briefing = document.documentElement.classList.contains('journal-mode');
+    action(briefing ? 'briefing' : 'wave');
+    if(briefing) speak(lastText);
+    else $('task').focus();
   });
   speech.addEventListener('click', () => {
     if (voiceOn) setVoice(false);
-    else if (localVoice() && typeof SpeechSynthesisUtterance === 'function') setVoice(true);
+    else if (localVoice() && typeof SpeechSynthesisUtterance === 'function') {setVoice(true);speak(lastText);}
     else setVoice(false, '本地中文语音不可用');
   });
   const motion = $('motion');
@@ -139,10 +144,11 @@ export function setupGuide() {
   });
   document.addEventListener('osint:effect', ({detail}) => {
     if (detail.domain !== 'guizhou_travel') return;
-    if (detail.type === 'tool_call') message(detail.message || '正在查询资料。', 'map', false);
-    if (detail.type === 'tool_result') message(detail.message || '工具已返回结果。', 'notes', true);
-    if (detail.type === 'tool_error') message(detail.message || '该项查询失败，报告会标出待查内容。', null, false);
+    if (detail.type === 'tool_call') message('我来核对行程里的交通和天气。', 'map', false);
+    if (detail.type === 'tool_result') message('资料已记好，正在整理行程。', 'notes', true);
+    if (detail.type === 'tool_error') message('有资料需要再确认，我会在报告里标明。', null, false);
   });
+  document.addEventListener('travel:preview',()=>action('preview'));
   action('wave');
 
   return function showWeather(weather) {
