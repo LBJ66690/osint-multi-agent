@@ -1,0 +1,10 @@
+{
+  "domain": "guizhou_travel",
+  "task": "帮我拟一个明天从贵阳去梵净山的三天、不超过2000元的旅游计划。",
+  "trip": {
+    "origin": "贵阳", "poi_ids": ["fanjingshan"], "start_date": "2026-11-20",
+    "end_date": "2026-11-22", "timezone": "Asia/Shanghai", "travelers": 1,
+    "budget_fen": 200000, "budget_scope": "group", "include_round_trip": true
+  },
+  "attachment_ids": []
+}

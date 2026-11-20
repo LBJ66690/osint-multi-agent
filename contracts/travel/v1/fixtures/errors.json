@@ -1,0 +1,20 @@
+[
+  {
+    "status": 401,
+    "detail": "请先登录"
+  },
+  {
+    "status": 409,
+    "detail": {
+      "code": "insufficient_credit",
+      "message": "旅行额度不足"
+    }
+  },
+  {
+    "status": 409,
+    "detail": {
+      "code": "idempotency_conflict",
+      "message": "请求内容已变更"
+    }
+  }
+]

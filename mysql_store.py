@@ -57,13 +57,13 @@ class MySQLStore:
     def check_schema(self):
         with self.cursor() as cursor:
             cursor.execute("SELECT MAX(version) AS version FROM osint_schema_versions")
-            if cursor.fetchone()["version"] != 1:
+            if cursor.fetchone()["version"] != 2:
                 raise RuntimeError("MySQL 数据库结构不匹配，请先执行项目数据库初始化脚本。")
 
     def healthy(self):
         with self.cursor() as cursor:
-            cursor.execute("SELECT 1 FROM osint_schema_versions WHERE version = 1")
-            return cursor.fetchone() is not None
+            cursor.execute("SELECT MAX(version) AS version FROM osint_schema_versions")
+            return cursor.fetchone()["version"] == 2
 
     def recover_interrupted_runs(self):
         with self.cursor() as cursor:
@@ -84,6 +84,7 @@ class MySQLStore:
                 (username, password_hash),
             )
             user_id = cursor.lastrowid
+            cursor.execute("INSERT INTO travel_accounts(owner_id) VALUES (%s)", (user_id,))
             if previous_digest:
                 cursor.execute("DELETE FROM osint_sessions WHERE token_digest = %s", (previous_digest,))
             cursor.execute(
@@ -143,15 +144,19 @@ class MySQLStore:
 
     def create_run(self, owner_id, state):
         with self.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO osint_runs (id, owner_id, task, model_id, status, execution_mode,
-                                        search_strategy, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                state["id"], owner_id, state["task"], state["model_id"], state["status"],
-                state["execution_mode"], state["search_strategy"],
-                _db_time(state["created_at"]), _db_time(state["updated_at"]),
-            ))
+            self.insert_run(cursor,owner_id,state)
+
+    @staticmethod
+    def insert_run(cursor,owner_id,state):
+        cursor.execute("""
+            INSERT INTO osint_runs (id, owner_id, task, model_id, status, execution_mode,
+                                    search_strategy, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            state["id"], owner_id, state["task"], state["model_id"], state["status"],
+            state["execution_mode"], state["search_strategy"],
+            _db_time(state["created_at"]), _db_time(state["updated_at"]),
+        ))
 
     @staticmethod
     def _format_run(row):

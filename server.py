@@ -29,6 +29,10 @@ import search_sources
 import report_chat
 import sag_evidence
 import sag_report_import
+import hashlib
+import travel_api
+import travel_plan
+import travel_store
 import web_auth
 from bailian_models import QUOTA_EXPIRY
 from mysql_store import MySQLStore, mysql_settings
@@ -38,7 +42,7 @@ from execution_policy import choose_policy
 from checkpoint_resume import resume_info
 
 ROOT = config.ROOT
-STATIC = ROOT / "static"
+STATIC = Path(os.getenv("TRAVEL_STATIC_DIR", ROOT / "static"))
 
 @asynccontextmanager
 async def lifespan(app):
@@ -52,6 +56,7 @@ async def lifespan(app):
             try:
                 await asyncio.to_thread(store.check_schema)
                 await asyncio.to_thread(store.recover_interrupted_runs)
+                await asyncio.to_thread(travel_store.reconcile,store)
             except pymysql.MySQLError:
                 raise RuntimeError("无法连接 MySQL 或数据库表未初始化。请检查数据库配置和建表脚本。") from None
             app.state.online_store = store
@@ -73,6 +78,7 @@ async def lifespan(app):
 
 app = FastAPI(title="开源情报多智能体平台", version="2.5", lifespan=lifespan)
 app.include_router(web_auth.router)
+app.include_router(travel_api.router)
 
 PUBLIC_API = {"/api/health", "/api/auth/options", "/api/auth/register", "/api/auth/login", "/api/auth/logout"}
 
@@ -132,6 +138,7 @@ class RunState:
         self.owner_id: Optional[int] = None
         self.store: Optional[MySQLStore] = None
         self.persisted_events = 0
+        self.travel = None
         self.task = task
         self.model_id = model_id
         self.role_models = role_models or models.role_defaults(choose_policy(task, execution_mode).mode)
@@ -199,6 +206,7 @@ class RunState:
                 recovery={'unavailable':True,'message':'检查点缺失或不完整，无法安全恢复'}
         return {
             **self.to_summary(),
+            **({k:self.summary.get(k) for k in ("trip_plan","evidence","domain","data_mode")} if self.travel else {}),
             "events": self.events,
             "summary": self.summary,
             "reports": self.reports,
@@ -286,6 +294,7 @@ def _restore_history_from_disk():
                         execution_mode=data.get("execution_mode", "auto"),
                     )
                     st.id = rid
+                    st.travel = data.get("travel")
                     st.search_sources = data.get("search_sources", [])
                     st.search_strategy = data.get('search_strategy','legacy')
                     is_done = data.get("status") == "done" if data.get("schema_version") == 2 else "verifying" in data.get("completed_stages", [])
@@ -304,6 +313,8 @@ def _restore_history_from_disk():
                         "findings": data.get("analysis", {}).get("findings", []),
                         "verifications": data.get("verifications", {}),
                     }
+                    if st.travel:
+                        st.summary.update(data)
                     st.events = _load_events(rid)
                     st.summary.update({key:data.get(key,[]) if key in {'decision_history','conflicts'} else data.get(key,{})
                                        for key in ['decision_history','conflicts','evidence_metrics','search_metrics']})
@@ -424,22 +435,31 @@ async def _run_task(state: RunState, resume: bool = False):
     try:
         if resume:
             await emit({"type": "resumed", "run_id": state.id, "message": "已从上一次检查点断点恢复执行"})
-        summary = await pipeline.run_pipeline(
-            state.task,
-            state.model_id,
-            emit,
-            confirm,
-            run_id=state.id,
-            role_models_override=state.role_overrides,
-            resume=resume,
-            gate=gate,
-            select_sources=choose_sources,
-            execution_mode=state.execution_mode,
-            search_strategy=state.search_strategy,
-            **({"store": state.store} if state.store else {}),
-        )
+        if state.travel:
+            summary = await travel_plan.execute(state, emit)
+        else:
+            summary = await pipeline.run_pipeline(
+                state.task,
+                state.model_id,
+                emit,
+                confirm,
+                run_id=state.id,
+                role_models_override=state.role_overrides,
+                resume=resume,
+                gate=gate,
+                select_sources=choose_sources,
+                execution_mode=state.execution_mode,
+                search_strategy=state.search_strategy,
+                **({"store": state.store} if state.store else {}),
+            )
         state.summary = summary
         state.reports = await _run_reports(state, summary)
+        if state.travel:
+            if not state.reports or not state.reports[0]["markdown"]:
+                raise RuntimeError("旅行报告未能回读")
+            if state.store:
+                await asyncio.to_thread(travel_store.transition,state.store,state.owner_id,state.id,"used")
+            await emit({"type":"done","message":"旅行报告已保存"})
         state.status = "done"
         async with state.cond:
             state.cond.notify_all()
@@ -459,6 +479,8 @@ async def _run_task(state: RunState, resume: bool = False):
             state.cond.notify_all()
     finally:
         try:
+            if state.store and state.travel and state.status in ("cancelled","error"):
+                await asyncio.to_thread(travel_store.transition,state.store,state.owner_id,state.id,"released")
             await _persist_events(state)
         except pymysql.MySQLError:
             config.logger.error("[%s] 暂未保存任务最终进度", state.id)
@@ -516,6 +538,7 @@ async def _get_run_state(run_id, request=None):
     state = RunState(row["task"], row["model_id"], role_models=checkpoint.get("role_models"),
                      execution_mode=row["execution_mode"])
     state.id, state.owner_id, state.store = run_id, owner_id, store
+    state.travel = await asyncio.to_thread(travel_store.load_request,store,owner_id,run_id)
     state.status = row["status"]
     state.search_strategy = row["search_strategy"]
     state.created_at, state.updated_at = row["created_at"], row["updated_at"]
@@ -530,6 +553,8 @@ async def _get_run_state(run_id, request=None):
         "conflicts": checkpoint.get("conflicts", []),
         "evidence_metrics": checkpoint.get("evidence_metrics", {}),
     }
+    if state.travel and checkpoint:
+        state.summary.update(checkpoint)
     state.reports = await _run_reports(state, checkpoint if checkpoint.get("reports") else state.summary)
     state.events, state.persisted_events = events, len(events)
     for event in events:
@@ -547,7 +572,10 @@ async def _get_run_state(run_id, request=None):
 async def index(request: Request):
     if web_auth.store_for(request) and not request.state.user:
         return RedirectResponse("/login", status_code=303)
-    return (STATIC / "index.html").read_text(encoding="utf-8")
+    page = STATIC / "index.html"
+    if request.query_params.get("workspace")=="research" and (STATIC/"workspace.html").is_file():
+        page=STATIC/"workspace.html"
+    return page.read_text(encoding="utf-8")
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -556,6 +584,12 @@ async def login_page(request: Request):
     if not web_auth.store_for(request) or request.state.user:
         return RedirectResponse("/", status_code=303)
     return (STATIC / "auth.html").read_text(encoding="utf-8")
+
+
+@app.get("/static/travel/config.js",include_in_schema=False)
+def travel_browser_config():
+    public={"amapKey":"","amapServiceHost":"","demoOrderSku":"travel-one"}
+    return Response("export const travelConfig = "+json.dumps(public)+";",media_type="text/javascript")
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
@@ -622,6 +656,9 @@ async def model_recommendation(task: str = "", execution_mode: Literal["auto", "
 
 
 class RunRequest(BaseModel):
+    domain: Optional[Literal["guizhou_travel"]] = None
+    trip: Optional[travel_api.Trip] = None
+    attachment_ids: list[str] = Field(default_factory=list,max_length=8)
     task: str = Field(max_length=6000)
     model_id: Optional[str] = None
     auto_confirm: bool = False
@@ -662,7 +699,33 @@ async def create_run(req: RunRequest, request: Request = None):
     state.ensure_future()
     state.search_strategy = req.search_strategy
     store = web_auth.store_for(request)
-    if store:
+    if req.domain:
+        if not req.trip or req.trip.missing():
+            raise HTTPException(422,"请先确认完整旅行草稿")
+        key=request.headers.get("Idempotency-Key","") if request else ""
+        if not 1<=len(key.encode())<=128:
+            raise HTTPException(422,"需要有效的 Idempotency-Key")
+        state.travel={"trip":req.trip.model_dump(mode="json",exclude_none=True),"attachment_ids":req.attachment_ids}
+        fingerprint=hashlib.sha256(json.dumps([task,state.travel],sort_keys=True).encode()).hexdigest()
+        state.summary={"domain":"guizhou_travel","request_key":key,"fingerprint":fingerprint}
+        if store:
+            state.id=uuid.uuid4().hex
+            state.store,state.owner_id=travel_api.owner(request)
+            async with request.app.state.create_lock:
+                saturated=sum(s.owner_id==state.owner_id and s.status not in FINAL for s in runs.values())>=2 or (len(runs)>=MAX_RUNS and all(s.status not in FINAL for s in runs.values()))
+                existing=await asyncio.to_thread(travel_store.reserve,store,state.owner_id,state.to_summary(),key,fingerprint,state.travel,saturated,request.app.state.online_settings.max_daily_runs)
+                if existing!=state.id:
+                    return {"run_id":existing,"model_id":model_id}
+        else:
+            if req.attachment_ids:
+                raise HTTPException(401,"附件需要登录")
+            for old in runs.values():
+                if old.store is None and old.travel and old.summary.get("request_key")==key:
+                    if old.summary.get("fingerprint")!=fingerprint:
+                        raise HTTPException(409,{"code":"idempotency_conflict","message":"请求内容已变更"})
+                    return {"run_id":old.id,"model_id":old.model_id}
+        _add_run(state)
+    elif store:
         require_model_service()
         state.id = uuid.uuid4().hex
         state.store = store
@@ -717,6 +780,20 @@ async def resume_run(run_id: str, req: ResumeRequest | None = None, request: Req
     state = await _get_run_state(run_id, request)
     if state.status not in {"error", "cancelled"} or (state.task_obj and not state.task_obj.done()):
         raise HTTPException(status_code=409, detail="仅可恢复已停止的失败或取消任务；等待选择渠道的任务请先完成选择")
+    if state.travel:
+        if state.store:
+            async with request.app.state.create_lock:
+                current=runs.get(run_id,state)
+                if current.task_obj and not current.task_obj.done():
+                    raise HTTPException(409,"任务正在执行")
+                await asyncio.to_thread(travel_store.transition,state.store,state.owner_id,run_id,"reserved")
+                _add_run(state)
+                state.status="running"
+                state.task_obj=asyncio.create_task(_run_task(state,resume=True))
+        else:
+            state.status="running"
+            state.task_obj=asyncio.create_task(_run_task(state,resume=True))
+        return {"ok":True,"run_id":run_id}
     if state.store:
         require_model_service()
         checkpoint = await asyncio.to_thread(state.store.load_checkpoint, run_id)
@@ -932,6 +1009,10 @@ async def cancel_run(run_id: str, request: Request = None):
     state.pending_sources = None
     if state.task_obj and not state.task_obj.done():
         state.task_obj.cancel()
+        if state.travel:
+            await asyncio.gather(state.task_obj,return_exceptions=True)
+    if state.store and state.travel:
+        await asyncio.to_thread(travel_store.transition,state.store,state.owner_id,state.id,"released")
     state.status = "cancelled"
     emit = await _emit_for(state)
     await emit({"type": "cancelled", "message": "任务已被主动取消"})
@@ -947,7 +1028,10 @@ async def run_events(run_id: str, request: Request, after: int = -1):
     digest = web_auth.session_digest(request) if state.store else None
 
     async def gen():
-        last = max(-1, after)
+        try:
+            last=max(-1,after,int(request.headers.get("Last-Event-ID","-1")))
+        except (ValueError,TypeError):
+            last=max(-1,after)
         last_hdr = request.headers.get("last-event-id")
         if last_hdr:
             try:

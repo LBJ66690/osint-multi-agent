@@ -8,3 +8,4 @@ uvicorn
 httpx>=0.27,<1
 PyMySQL[rsa]>=1.1,<2
 argon2-cffi>=25.1,<26
+Pillow>=12,<14

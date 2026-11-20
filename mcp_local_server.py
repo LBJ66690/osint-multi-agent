@@ -29,6 +29,16 @@ def _get_local_briefing(topic: str) -> str:
     return get_local_briefing(topic)
 
 
+@mcp.tool()
+def get_scenic_card(poi_id: str) -> dict:
+    """按公开景点 ID 查询目录中的介绍、图片来源和官方预约方式。"""
+    from travel_tools import catalog
+    card = catalog().get(poi_id)
+    if card is None:
+        raise ValueError("未知景点 ID")
+    return card
+
+
 @mcp.resource("osint://report-types")
 def report_types_resource() -> str:
     """当前支持的报告类型。"""
