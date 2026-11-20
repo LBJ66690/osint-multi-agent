@@ -7,6 +7,7 @@
   <title>贵州山水 · 旅行规划</title>
   <script src="/static/travel/entry.js"></script>
   <link rel="stylesheet" href="/static/travel/travel.css">
+  <link rel="stylesheet" href="/static/travel/atlas.css">
   <script type="module" src="/static/travel/app.js"></script>
 </head>
 <body>
@@ -28,22 +29,35 @@
     </section>
     <p id="demo-banner" class="notice" hidden>样例回放 · 使用固定数据。天气、价格和行程仅供界面演示。</p>
     <p id="notice" class="notice" role="status" hidden></p>
+    <section id="discover" class="panel map-panel" aria-labelledby="map-title">
+      <div class="panel-head atlas-head">
+        <div><h2 id="map-title">贵州九市州景点地图</h2><p>点选地图上的景点或实景照片，查看介绍和预约方式。</p></div>
+        <div class="atlas-tools">
+          <span id="map-mode">本地地图</span>
+          <button id="switch-map" type="button" hidden>在线地图</button>
+          <a class="button" id="atlas-detail" href="#poi-card" hidden>查看景点详情</a>
+        </div>
+      </div>
+      <div class="map-atlas" id="map-atlas">
+        <canvas id="map-leaders" aria-hidden="true"></canvas>
+        <div class="map-frame">
+          <div id="online-map" aria-hidden="true" class="loading-map" hidden></div>
+          <div class="schematic" id="schematic">
+            <canvas id="region-map" aria-hidden="true"></canvas>
+            <div id="region-labels" aria-hidden="true"></div>
+            <div id="map-points" role="group" aria-label="贵州地图景点"></div>
+            <span class="map-north" aria-hidden="true">↑ 北</span>
+            <p id="atlas-error" role="status" hidden>区划地图暂不可用，请点选景点照片。</p>
+          </div>
+        </div>
+        <nav id="poi-list" class="poi-list" aria-label="九市州代表景点"></nav>
+      </div>
+      <p class="map-credit">区划数据 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap 贡献者</a> · 景点位置供旅行导览参考</p>
+    </section>
     <div class="grid">
       <div class="left">
-        <section id="discover" class="panel map-panel" aria-labelledby="map-title">
-          <div class="panel-head">
-            <div><p class="eyebrow">目的地</p><h2 id="map-title">贵州九市州</h2></div>
-            <span id="map-mode">本地示意图</span>
-          </div>
-          <div class="map-frame">
-            <div id="online-map" aria-hidden="true" class="loading-map" hidden></div>
-            <div class="schematic" id="schematic">
-              <img src="/static/travel/assets/guizhou-map.svg" alt="" width="640" height="465">
-              <div id="map-points" aria-label="贵州地图点位"></div>
-              <span class="map-north" aria-hidden="true">↑ 北</span>
-            </div>
-          </div>
-          <nav id="poi-list" class="poi-list" aria-label="九市州景点"></nav>
+        <section class="panel poi-card" aria-labelledby="poi-title" id="poi-card">
+          <div id="poi-content"><h2 id="poi-title">加载景点目录…</h2></div>
         </section>
         <aside class="panel guide" id="guide" data-action="idle" aria-label="虚拟导游">
           <button type="button" class="guide-art" id="guide-greet" aria-label="打开行程草稿">
@@ -64,9 +78,6 @@
         </aside>
       </div>
       <div class="right">
-        <section class="panel poi-card" aria-labelledby="poi-title" id="poi-card">
-          <div id="poi-content"><h2 id="poi-title">加载景点目录…</h2></div>
-        </section>
         <section id="planner" class="panel planner" aria-labelledby="planner-title">
           <div class="panel-head"><div><p class="eyebrow">行程草稿</p><h2 id="planner-title">说说你想怎么走</h2></div><button type="button" id="example" class="text-button">填入梵净山样例</button></div>
           <form id="draft-form">

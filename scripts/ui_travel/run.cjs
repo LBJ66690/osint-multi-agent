@@ -132,6 +132,11 @@ async function screenshot(page, name, selector) {
   else await page.screenshot({path: path.join(output, name), animations: 'disabled'});
 }
 
+async function waitForAtlas(page) {
+  await page.waitForFunction(() => document.querySelectorAll('#map-points .pin[style]').length === 9);
+  await page.locator('#poi-list img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+}
+
 async function demoFlow(browser, url, errors) {
   const page = await browser.newPage({viewport: {width: 1400, height: 1200}, acceptDownloads: true});
   page.on('pageerror', error => errors.push(error.message));
@@ -142,8 +147,17 @@ async function demoFlow(browser, url, errors) {
   });
   await page.goto(url + '/?demo=travel');
   await waitText(page, '#poi-title', '梵净山');
+  await waitForAtlas(page);
   await screenshot(page, 'desktop-home.png');
   assert.equal(await page.locator('#poi-list button').count(), 9);
+  assert.equal(await page.locator('#region-labels .region-name').count(), 9);
+  assert.equal(await page.locator('#poi-list img').count(), 9);
+  assert.equal(await page.locator('#switch-map').isVisible(), false);
+  await screenshot(page, 'desktop-atlas.png', '#map-atlas');
+  const bijie = await page.locator('#region-labels .region-name').filter({hasText: /^毕节$/}).boundingBox();
+  await page.mouse.click(bijie.x + bijie.width / 2, bijie.y + bijie.height / 2);
+  await waitText(page, '#poi-title', '织金洞');
+  assert.equal(await page.locator('#poi-list [data-poi="zhijin-cave"]').getAttribute('aria-pressed'), 'true');
   await page.locator('#map-points [data-poi="qingyan"]').press('Enter');
   await waitText(page, '#poi-title', '青岩古镇');
   assert.equal(await page.locator('#task').inputValue(), '');
@@ -209,14 +223,18 @@ async function demoFlow(browser, url, errors) {
 async function mobileFlow(browser, url, errors) {
   const page = await browser.newPage({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true, reducedMotion: 'reduce'});
   page.on('pageerror', error => errors.push(error.message));
-  await page.route('**/travel/assets/qingyan.webp', route => route.abort());
   await page.goto(url + '/?demo=travel');
   await waitText(page, '#poi-title', '梵净山');
+  await waitForAtlas(page);
   await screenshot(page, 'mobile-home.png');
+  await screenshot(page, 'mobile-atlas.png', '#map-atlas');
+  await page.route('**/travel/assets/qingyan.webp', route => route.abort());
+  await page.reload();
+  await page.locator('#poi-list [data-poi="qingyan"]').getByText('实景照片暂不可用').waitFor();
   await page.locator('#map-points [data-poi="qingyan"]').tap();
   await waitText(page, '#mobile-poi', '实景图暂不可用');
   await page.locator('#poi-dialog [data-close]').tap();
-  await page.locator('#map-points [data-poi="fanjingshan"]').tap();
+  await page.locator('#poi-list [data-poi="fanjingshan"]').tap();
   await page.locator('#mobile-poi img').evaluate(image => image.decode());
   await screenshot(page, 'mobile-poi.png', '#poi-dialog');
   await page.locator('#mobile-poi').getByRole('button', {name: /用它规划/}).tap();
@@ -240,6 +258,7 @@ async function liveFixtureFlow(browser, url, runtime, errors) {
   await page.route('https://webapi.amap.com/**', route => route.abort());
   await page.goto(url);
   await waitText(page, '#weather-time', '建议带伞');
+  await page.locator('#switch-map').click();
   await waitText(page, '#map-mode', '底图不可用');
   assert.notEqual(await page.locator('#guide').getAttribute('data-action'), 'umbrella');
   await page.locator('#open-ticket').click();
@@ -321,6 +340,14 @@ async function main() {
     await mobileFlow(browser, url, errors);
     assert.deepEqual(runtime.recorded, [], 'mobile demo must remain isolated');
     await liveFixtureFlow(browser, url, runtime, errors);
+    const atlasFallback = await browser.newPage();
+    atlasFallback.on('pageerror', error => errors.push(error.message));
+    await atlasFallback.route('**/travel/data/guizhou-prefectures.json', route => route.abort());
+    await atlasFallback.goto(url + '/?demo=travel');
+    await atlasFallback.locator('#atlas-error').waitFor();
+    await atlasFallback.locator('#poi-list [data-poi="huangguoshu"]').click();
+    await waitText(atlasFallback, '#poi-title', '黄果树瀑布');
+    await atlasFallback.close();
     const workbench = await browser.newPage();
     await workbench.goto(url + '/?workspace=research');
     await workbench.locator('#welcome-screen').waitFor();

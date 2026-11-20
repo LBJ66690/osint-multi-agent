@@ -1,4 +1,5 @@
 import {$, booking, button, link, make, openDialog, scenic, show} from './ui.js';
+import {setupAtlas} from './atlas.js';
 
 export async function loadCatalog() {
   const response = await fetch('/static/travel/data/pois.json');
@@ -9,8 +10,7 @@ export async function loadCatalog() {
 
 export function drawPois(catalog, plan) {
   const mobile = matchMedia('(max-width: 760px)');
-  const maps = $('map-points');
-  const list = $('poi-list');
+  const syncAtlas = setupAtlas(catalog, select);
   function card(poi) {
     const file = poi.images[0] || catalog.get(poi.parent_id)?.images[0];
     const image = scenic(file, false);
@@ -28,7 +28,7 @@ export function drawPois(catalog, plan) {
       const list = make('ul');
       for (const child of children) {
         const row = make('li');
-        row.append(button(child.name, () => select(child.poi_id, false), 'text-button'));
+        row.append(button(child.name, () => select(child.poi_id, {openOnMobile: false}), 'text-button'));
         list.append(row);
       }
       copy.append(list);
@@ -47,97 +47,119 @@ export function drawPois(catalog, plan) {
     return [image, copy];
   }
 
-  function select(id, allowDialog = true) {
+  function select(id, {openOnMobile = true, showDetail = false} = {}) {
     const poi = catalog.get(id);
     if (!poi) return;
-    for (const btn of document.querySelectorAll('[data-poi]')) {
-      btn.setAttribute('aria-pressed', String(btn.dataset.poi === id || btn.dataset.poi === poi.parent_id));
-    }
+    syncAtlas(poi.parent_id || id);
+    const details = $('atlas-detail');
+    details.hidden = false;
+    details.textContent = `查看${poi.name}`;
+    details.onclick = event => {
+      event.preventDefault();
+      select(id, {showDetail: true});
+    };
     const cardFocused = $('poi-content').contains(document.activeElement);
     const children = card(poi);
     const heading = children[1].querySelector('h2');
     heading.id = 'poi-title';
     heading.tabIndex = -1;
     $('poi-content').replaceChildren(...children);
-    if ($('poi-dialog').open || (allowDialog && mobile.matches)) {
+    if ($('poi-dialog').open || (openOnMobile && mobile.matches)) {
       $('mobile-poi').replaceChildren(...card(poi));
       openDialog('poi-dialog');
       const mobileHeading = $('mobile-poi').querySelector('h2');
       mobileHeading.tabIndex = -1;
       mobileHeading.focus();
-    } else if (cardFocused) {
-      heading.focus();
+    } else if (showDetail || cardFocused) {
+      heading.focus({preventScroll: true});
+      $('poi-card').scrollIntoView({block: 'nearest'});
     }
   }
 
-  for (const poi of catalog.values()) {
-    if (!poi.map_position) continue;
-    const pin = button(poi.region, () => select(poi.poi_id), 'pin');
-    pin.dataset.poi = poi.poi_id;
-    pin.style.left = `${poi.map_position.x}%`;
-    pin.style.top = `${poi.map_position.y}%`;
-    pin.setAttribute('aria-label', `${poi.region}：${poi.name}`);
-    maps.append(pin);
-    const item = button('', () => select(poi.poi_id));
-    item.dataset.poi = poi.poi_id;
-    item.append(make('span', poi.region), poi.name);
-    list.append(item);
-  }
-  select('fanjingshan', false);
+  select('fanjingshan', {openOnMobile: false});
   return select;
 }
 
-export async function onlineMap(catalog, select, config) {
+export function onlineMap(catalog, select, config) {
   const {amapKey, amapServiceHost} = config;
   if (!amapKey) return;
+  const toggle = $('switch-map');
+  const atlas = $('map-atlas');
   const frame = $('online-map');
-  try {
+  let map;
+
+  function showOnline(showMap) {
+    frame.hidden = !showMap;
+    atlas.classList.toggle('online-active', showMap);
+    toggle.textContent = showMap ? '返回景点地图' : '在线地图';
+    show('map-mode', showMap ? '高德地图' : '本地地图');
+    if (showMap) map.resize?.();
+  }
+
+  async function loadSdk() {
+    if (window.AMap) return;
     if (amapServiceHost) window._AMapSecurityConfig = {serviceHost: amapServiceHost};
     await new Promise((resolve, reject) => {
       const script = make('script');
       script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(amapKey)}`;
-      const timeout = setTimeout(() => reject(new Error('底图连接超时')), 6500);
-      script.onload = () => { clearTimeout(timeout); resolve(); };
-      script.onerror = () => { clearTimeout(timeout); reject(new Error('底图加载失败')); };
+      function finish(error) {
+        clearTimeout(timeout);
+        if (error) { script.remove(); reject(error); }
+        else resolve();
+      }
+      const timeout = setTimeout(() => finish(new Error('底图连接超时')), 6500);
+      script.onload = () => finish();
+      script.onerror = () => finish(new Error('底图加载失败'));
       document.head.append(script);
     });
     if (!window.AMap) throw new Error('底图未初始化');
-    frame.hidden = false;
-    const map = new window.AMap.Map(frame, {zoom: 6.8, center: [106.73, 26.59]});
-    let failed = false;
-    const fail = () => {
-      if (failed) return;
-      failed = true;
-      map.destroy();
-      frame.hidden = true;
-      $('map-mode').textContent = '本地示意图 · 底图不可用';
-    };
-    const timeout = setTimeout(fail, 6500);
-    map.on('complete', () => {
-      clearTimeout(timeout);
-      if (failed) return;
-      frame.classList.remove('loading-map');
-      $('schematic').classList.add('under-map');
-      $('map-mode').textContent = '高德地图';
-    });
-    map.on('error', () => {
-      clearTimeout(timeout);
-      fail();
-      $('schematic').classList.remove('under-map');
-    });
-    const regions = [...catalog.values()].filter(poi => poi.map_position);
-    const points = regions.map(poi => [poi.coordinates.longitude, poi.coordinates.latitude]);
-    window.AMap.convertFrom(points, 'gps', (status, result) => {
-      if (failed || status !== 'complete' || !result.locations?.length) return;
-      result.locations.forEach((position, index) => {
-        const poi = regions[index];
-        const marker = new window.AMap.Marker({position, title: poi.name});
-        marker.on('click', () => select(poi.poi_id));
-        map.add(marker);
-      });
-    });
-  } catch {
-    frame.hidden = true;
-    show('map-mode', '本地示意图 · 底图不可用');
   }
+
+  toggle.hidden = false;
+  toggle.addEventListener('click', async () => {
+    if (map) return showOnline(frame.hidden);
+    toggle.disabled = true;
+    show('map-mode', '正在连接在线地图');
+    try {
+      await loadSdk();
+      frame.classList.add('loading-map');
+      frame.hidden = false;
+      const instance = new window.AMap.Map(frame, {zoom: 6.8, center: [106.73, 26.59]});
+      map = instance;
+      const fail = () => {
+        if (map !== instance) return;
+        instance.destroy();
+        map = null;
+        showOnline(false);
+        show('map-mode', '本地地图 · 底图不可用');
+        toggle.disabled = false;
+      };
+      const timeout = setTimeout(fail, 6500);
+      instance.on('error', () => { clearTimeout(timeout); fail(); });
+      instance.on('complete', () => {
+        clearTimeout(timeout);
+        if (map !== instance || !frame.classList.contains('loading-map')) return;
+        frame.classList.remove('loading-map');
+        showOnline(true);
+        toggle.disabled = false;
+      });
+      const regions = [...catalog.values()].filter(poi => !poi.parent_id);
+      const points = regions.map(poi => [poi.coordinates.longitude, poi.coordinates.latitude]);
+      window.AMap.convertFrom(points, 'gps', (status, result) => {
+        if (map !== instance || status !== 'complete' || !result.locations?.length) return;
+        result.locations.forEach((position, index) => {
+          const poi = regions[index];
+          const marker = new window.AMap.Marker({position, title: poi.name});
+          marker.on('click', () => select(poi.poi_id));
+          instance.add(marker);
+        });
+      });
+    } catch {
+      map?.destroy();
+      map = null;
+      showOnline(false);
+      show('map-mode', '本地地图 · 底图不可用');
+      toggle.disabled = false;
+    }
+  });
 }

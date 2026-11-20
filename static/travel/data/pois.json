@@ -20,12 +20,12 @@
       {
         "image_id": "qingyan-photo",
         "src": "/static/travel/assets/qingyan.webp",
-        "alt": "青岩古镇实景",
-        "caption": "青岩古镇实景",
+        "alt": "青岩古镇街景",
+        "caption": "青岩古镇街景",
         "credit": "xiquinhosilva",
         "license": "CC BY 2.0",
         "license_url": "https://creativecommons.org/licenses/by/2.0",
-        "source_url": "https://commons.wikimedia.org/wiki/File:Qingyan_Ancient_Town_86102-Guiyang_(49047230577).jpg",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Qingyan_Ancient_Town,_Guiyang.jpg",
         "changes": "缩放并转为 WebP；网页封面按版式裁切"
       }
     ],
@@ -120,8 +120,8 @@
       {
         "image_id": "wumeng-grassland-photo",
         "src": "/static/travel/assets/wumeng-grassland.webp",
-        "alt": "乌蒙大草原实景",
-        "caption": "乌蒙大草原实景",
+        "alt": "乌蒙大草原雪景",
+        "caption": "乌蒙大草原雪景",
         "credit": "Huangdan2060",
         "license": "CC BY 3.0",
         "license_url": "https://creativecommons.org/licenses/by/3.0",
@@ -361,12 +361,12 @@
       {
         "image_id": "libo-xiaoqikong-photo",
         "src": "/static/travel/assets/libo-xiaoqikong.webp",
-        "alt": "荔波小七孔实景",
-        "caption": "荔波小七孔实景",
-        "credit": "Fanghong",
-        "license": "CC BY-SA 3.0",
-        "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
-        "source_url": "https://commons.wikimedia.org/wiki/File:Xiaoqikong.JPG",
+        "alt": "荔波小七孔古桥与水景",
+        "caption": "荔波小七孔古桥与水景",
+        "credit": "FN-082",
+        "license": "CC BY-SA 4.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+        "source_url": "https://commons.wikimedia.org/wiki/File:%E8%8D%94%E6%B3%A2%E5%B0%8F%E4%B8%83%E5%AD%94,_%E8%B4%B5%E5%B7%9E_202403_3.jpg",
         "changes": "缩放并转为 WebP；网页封面按版式裁切"
       }
     ],

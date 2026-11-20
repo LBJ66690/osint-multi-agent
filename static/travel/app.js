@@ -100,7 +100,7 @@ async function init() {
     input.focus();
   }
   $('example').addEventListener('click', () => {
-    selectPoi?.('fanjingshan', false);
+    selectPoi?.('fanjingshan', {openOnMobile: false});
     plan(catalog.get('fanjingshan') || {poi_id: 'fanjingshan'}, true);
   });
   $('clear-destination').addEventListener('click', () => {
@@ -193,7 +193,7 @@ async function init() {
     const rows = await loadCatalog();
     for (const [id, poi] of rows) catalog.set(id, poi);
     selectPoi = drawPois(catalog, plan);
-    if (!demo) void onlineMap(catalog, selectPoi, travelConfig);
+    if (!demo) onlineMap(catalog, selectPoi, travelConfig);
   } catch (error) {
     $('poi-title').textContent = '景点目录暂不可用';
     show('notice', error.message);
