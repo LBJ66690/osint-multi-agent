@@ -327,6 +327,10 @@ async function liveFixtureFlow(browser, url, runtime, errors) {
   await waitText(page, '#weather', '天气待查');
   await waitText(page, '#run-status', '已完成');
   assert.equal(await page.evaluate(() => window.travelEffects.length), 0, 'stored task does not replay speech or animations');
+  // Older servers serve the research HTML for links that contain both parameters.
+  await page.goto(url + '/static/workspace.html?workspace=research&travel_report=live-fixture');
+  await waitText(page, '#report-body', '已恢复的行程');
+  assert.equal(new URL(page.url()).search, '?travel_report=live-fixture');
   await page.close();
 }
 

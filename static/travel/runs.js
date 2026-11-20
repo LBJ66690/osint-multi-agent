@@ -173,6 +173,13 @@ export function setupRuns(request, events, report, refreshBalance) {
         }, 'text-button'));
         list.append(item);
       }
+      if ((data.runs || []).some(row => !Object.hasOwn(row, 'domain') && !row.summary?.domain)) {
+        const link = make('a', '打开工作台历史记录');
+        link.href = '/?workspace=research';
+        const item = make('li');
+        item.append(link);
+        list.append(item);
+      }
       if (!list.childElementCount) list.append(make('li', '暂无旅行记录'));
     } catch (error) {
       if (attempt === historyRequest) list.replaceChildren(make('li', error.status === 401 ? '登录后查看旅行记录' : '暂时无法读取旅行记录'));

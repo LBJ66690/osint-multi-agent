@@ -89,15 +89,27 @@ async function init() {
       document.title='贵州山水';
     }
   });
-  if(params.has('travel_report')){
+  if(params.has('travel_report') || params.has('history_report')){
     try {
-      for(const [id,poi] of await loadCatalog()) catalog.set(id,poi);
-      const rid=params.get('travel_report');
+      document.documentElement.classList.add('journal-mode');
+      show('notice','正在打开报告…');
+      const rid=params.get('travel_report') || params.get('history_report');
       const detail=demo?JSON.parse(sessionStorage.getItem('travel-demo-report')||'null'):await request('/api/runs/'+encodeURIComponent(rid));
       if(!detail || detail.id!==rid || detail.status!=='done')throw new Error('这份报告暂不可读，请返回旅行记录。');
-      report.showReport(detail);
+      if(params.has('history_report') && !(detail.trip_plan || detail.summary?.trip_plan || detail.domain==='guizhou_travel')){
+        location.replace('/static/workspace.html?record='+encodeURIComponent(rid));
+        return;
+      }
+      for(const [id,poi] of await loadCatalog().catch(()=>[])) catalog.set(id,poi);
+      show('notice','');
+      report.showReport({...detail,trip_plan:detail.trip_plan || detail.summary?.trip_plan});
       void account.load();
-    } catch(error){show('notice',error.message);}
+    } catch(error){
+      show('notice', error.status === 404 ? '当前账号找不到这份报告。请用创建行程时的账号查看旅行记录。' : error.message);
+      const historyLink = make('a', '返回旅行记录');
+      historyLink.href = '/#history';
+      $('notice').append(' ', historyLink);
+    }
     return;
   }
   const runs = setupRuns(request, events, report, account.refresh);

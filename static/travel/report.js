@@ -37,7 +37,6 @@ export function setupReport(request, catalog, demo) {
   }
   function offer(detail){
     const url=new URL('/',location.origin);
-    url.searchParams.set('workspace','research');
     url.searchParams.set('travel_report',detail.id);
     const entry=$('view-report');
     if(demo){
