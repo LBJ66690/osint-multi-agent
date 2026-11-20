@@ -118,6 +118,7 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
             missing.append("东、西门是备选入口，请选择一处并确认预约")
     options=[]
     railway={}
+    forecasts=[]
     if not (trip.get("ticket_fields") or {}).get("arrival_station") and trip.get("origin") in ("贵阳","贵阳北","贵阳北站") and any(p.startswith("fanjingshan") for p in requested):
         station="铜仁站"
         missing.append("铜仁站与铜仁南站为候选，到达站和余票需确认")
@@ -165,6 +166,7 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
                 days[0]["evidence_ids"].append(eid)
         weather,eid=await query("weather.forecast",[poi_id,str(start),str(end)],lambda:weather_call(poi_id,start,end))
         if weather:
+            forecasts.append({**weather,"poi_id":poi_id,"evidence_id":eid})
             for day,item in zip(days,weather["days"]):
                 p=item["precipitation_probability_max"]
                 day["activities"].append(f"{card['county']}当日预报降雨概率 {p}%")
@@ -231,7 +233,7 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
     if costs["budget_status"]=="over":
         missing.append(f"已知最低超支 {(costs['known_lower_fen']-limit)/100:.2f} 元，请选择调整行程或增加预算")
     plan={"outcome":"infeasible" if costs["budget_status"]=="over" else "needs_confirmation" if missing else "ready","days":days,"legs":legs,"weather_alternatives":alternatives,
-          "transport_options":options,"budget":costs,"booking_entries":bookings,"media":media,"evidence_ids":[e["id"] for e in evidence],"unresolved":missing}
+          "railway":railway,"weather":forecasts,"transport_options":options,"budget":costs,"booking_entries":bookings,"media":media,"evidence_ids":[e["id"] for e in evidence],"unresolved":missing}
     lines=["# 贵州旅行报告",state.task]
     for day in days:
         lines.extend(["## "+day["date"],*day["activities"],"依据 "+"、".join(day["evidence_ids"])])

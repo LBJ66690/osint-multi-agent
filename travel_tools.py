@@ -14,7 +14,7 @@ STATIONS = {
     "铜仁站": (27.74332, 109.19970, "https://www.openstreetmap.org/node/1681825151"),
     "铜仁南站": (27.28245, 108.97131, "https://www.openstreetmap.org/node/2953807111"),
 }
-PACKAGES = {"route": "osm-mcp", "weather_forecast": "open-meteo-mcp-server"}
+PACKAGES = {"route": "osm-mcp", "weather_forecast": "open-meteo-mcp-server", "air_quality":"open-meteo-mcp-server"}
 
 
 def catalog():
@@ -73,9 +73,22 @@ async def forecast(poi_id, start, end, call=invoke):
     point = card["coordinates"]
     if point["system"] != "WGS84":
         raise ValueError("请核对天气查询坐标系")
+    daily_fields = ["precipitation_probability_max","weather_code","temperature_2m_max","temperature_2m_min",
+                    "sunrise","sunset","precipitation_sum","uv_index_max","wind_speed_10m_max",
+                    "wind_gusts_10m_max","wind_direction_10m_dominant"]
+    hourly_fields = ["temperature_2m","apparent_temperature","relative_humidity_2m","weather_code",
+                     "surface_pressure","visibility","cloud_cover","precipitation_probability"]
+    if (end-start).days>=5:
+        batches=[]
+        cursor=start
+        while cursor<=end:
+            last=min(cursor+timedelta(days=4),end)
+            batches.append(await forecast(poi_id,cursor,last,call))
+            cursor=last+timedelta(days=1)
+        return {**batches[0],"days":[d for b in batches for d in b["days"]]}
     raw = await call("weather_forecast", {"latitude":point["latitude"],"longitude":point["longitude"],
         "timezone":"Asia/Shanghai","start_date":start.isoformat(),"end_date":end.isoformat(),
-        "daily":["precipitation_probability_max","weather_code"]})
+        "daily":daily_fields,"hourly":hourly_fields})
     dates = [(start+timedelta(days=i)).isoformat() for i in range((end-start).days+1)]
     daily = raw["daily"]
     probs = daily["precipitation_probability_max"]
@@ -83,8 +96,29 @@ async def forecast(poi_id, start, end, call=invoke):
         or raw.get("daily_units",{}).get("precipitation_probability_max")!="%"
         or not all(type(p) in (int,float) and 0<=p<=100 for p in probs)):
         raise ValueError("预报日期、时区或概率无效")
+    hourly=raw.get("hourly") or {}
+    air_by_hour={}
+    if hourly.get("time"):
+        try:
+            variables=["european_aqi","pm2_5","pm10","sulphur_dioxide","carbon_monoxide"]
+            air=await call("air_quality",{"latitude":point["latitude"],"longitude":point["longitude"],
+                           "timezone":"Asia/Shanghai","start_date":start.isoformat(),"end_date":end.isoformat(),"hourly":variables})
+            if air.get("timezone")=="Asia/Shanghai":
+                series=air["hourly"]
+                for j,t in enumerate(series["time"]):
+                    air_by_hour[t]={k:series[k][j] for k in variables if len(series.get(k,[]))>j}
+        except Exception:
+            # Air quality has its own forecast horizon and may be unavailable.
+            pass
+    days=[]
+    for i,d in enumerate(dates):
+        row={k:daily[k][i] for k in daily_fields if isinstance(daily.get(k),list) and len(daily[k])>i}
+        row["date"]=d
+        row["hours"]=[{"time":t,**air_by_hour.get(t,{}),**{k:hourly[k][j] for k in hourly_fields if len(hourly.get(k,[]))>j}}
+                      for j,t in enumerate(hourly.get("time",[])) if t.startswith(d+"T")]
+        days.append(row)
     return {"location":card["county"],"kind":"forecast","timezone":"Asia/Shanghai",
-            "days":[{"date":d,"precipitation_probability_max":p} for d,p in zip(dates,probs)],
+            "days":days,"units":{**raw.get("hourly_units",{}),**raw.get("daily_units",{})},
             "as_of":datetime.now(CHINA).isoformat(timespec="seconds")}
 
 async def rail(origin,destination,day):
@@ -93,13 +127,13 @@ async def rail(origin,destination,day):
     if any(not stations.get(s,{}).get("station_code") for s in names):
         raise ValueError("请核对铁路车站")
     args={"date":day,"fromStation":stations[names[0]]["station_code"],"toStation":stations[names[1]]["station_code"],
-          "limitedNum":4,"format":"json"}
+          "limitedNum":0,"format":"json"}
     rows=await invoke("get-tickets",args)
     if not isinstance(rows,list):
         raise ValueError("铁路返回格式无效")
     return {"date":day,"from":origin,"to":destination,"trains":[
         {k:r.get(k) for k in ("start_train_code","from_station","to_station","start_date","arrive_date","start_time","arrive_time","prices")}
-        for r in rows[:4] if r.get("from_station")==names[0] and r.get("to_station")==names[1] and r.get("start_date")==day]}
+        for r in rows if r.get("from_station")==names[0] and r.get("to_station")==names[1] and r.get("start_date")==day]}
 
 
 async def flight(dep,arr,day):

@@ -573,7 +573,7 @@ async def index(request: Request):
     if web_auth.store_for(request) and not request.state.user:
         return RedirectResponse("/login", status_code=303)
     page = STATIC / "index.html"
-    if request.query_params.get("workspace")=="research" and (STATIC/"workspace.html").is_file():
+    if request.query_params.get("workspace")=="research" and not request.query_params.get("travel_report") and (STATIC/"workspace.html").is_file():
         page=STATIC/"workspace.html"
     return page.read_text(encoding="utf-8")
 
