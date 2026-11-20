@@ -712,7 +712,9 @@ async def create_run(req: RunRequest, request: Request = None):
             state.id=uuid.uuid4().hex
             state.store,state.owner_id=travel_api.owner(request)
             async with request.app.state.create_lock:
-                saturated=sum(s.owner_id==state.owner_id and s.status not in FINAL for s in runs.values())>=2 or (len(runs)>=MAX_RUNS and all(s.status not in FINAL for s in runs.values()))
+                if len(runs)>=MAX_RUNS and all(s.status not in FINAL for s in runs.values()):
+                    raise HTTPException(429, '服务当前已满，请稍后重试')
+                saturated=sum(s.owner_id==state.owner_id and s.status not in FINAL for s in runs.values())>=2
                 existing=await asyncio.to_thread(travel_store.reserve,store,state.owner_id,state.to_summary(),key,fingerprint,state.travel,saturated,request.app.state.online_settings.max_daily_runs)
                 if existing!=state.id:
                     return {"run_id":existing,"model_id":model_id}
@@ -755,6 +757,8 @@ def require_model_service():
 
 
 def check_user_capacity(owner_id):
+    if web_auth.is_test_admin(owner_id):
+        return
     if sum(state.owner_id == owner_id and state.status not in FINAL for state in runs.values()) >= 2:
         raise HTTPException(429, "已有两项研究任务在执行或等待确认。")
 

@@ -54,3 +54,24 @@ class AccountAPI(unittest.TestCase):
                 self.assertEqual(first.delete("/api/travel/attachments/"+aid).status_code,204)
                 self.assertEqual(first.get("/api/travel/attachments/"+aid).status_code,404)
                 second.close()
+
+    def test_admin_can_run_with_zero_credits_and_personal_limits(self):
+        from datetime import datetime, timezone
+        from mysql_store import MySQLStore, mysql_settings
+        import travel_store
+        store = MySQLStore(mysql_settings())
+        name = "t" + uuid.uuid4().hex[:14]
+        uid = store.create_user(name, "test-only", uuid.uuid4().bytes * 2,
+                                datetime.now(timezone.utc))["id"]
+        with store.cursor() as cursor:
+            cursor.execute("UPDATE travel_accounts SET available=0 WHERE owner_id=%s", (uid,))
+        with patch.dict(os.environ, OSINT_TEST_ADMIN_ID=str(uid), OSINT_PUBLIC_ORIGIN="http://127.0.0.1:8768"):
+            for _ in range(2):
+                rid = uuid.uuid4().hex
+                now = datetime.now(timezone.utc).isoformat()
+                state = dict(id=rid,task="fixture",model_id="fixture",status="pending",
+                             execution_mode="auto",search_strategy="legacy",created_at=now,updated_at=now)
+                self.assertEqual(travel_store.reserve(store,uid,state,rid,"f"*64,{"attachment_ids":[]},True,0),rid)
+                travel_store.transition(store,uid,rid,"used")
+            self.assertEqual(travel_store.account_data(store,uid,"credits"),
+                             dict(available=0,reserved=0,used=0,unlimited=True))

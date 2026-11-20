@@ -1,6 +1,7 @@
 """Account-scoped travel data. Every balance transition locks the account first."""
 import json
 import uuid
+from web_auth import is_test_admin
 from fastapi import HTTPException
 
 
@@ -18,7 +19,7 @@ def account_data(store, uid, action, values=None):
     with store.cursor() as c:
         row=account(c,uid)
         if action=="credits":
-            return credits(row)
+            return {**credits(row), "unlimited": True} if is_test_admin(uid) else credits(row)
         profile=json.loads(row["profile"] or "{}")
         if values is not None:
             profile.update(values)
@@ -58,20 +59,23 @@ def reserve(store,uid,state,key,fingerprint,payload,saturated,daily_limit):
             if old["fingerprint"]!=fingerprint:
                 raise HTTPException(409,{"code":"idempotency_conflict","message":"请求内容已变更"})
             return old["run_id"]
-        if saturated:
+        unlimited = is_test_admin(uid)
+        if saturated and not unlimited:
             raise HTTPException(429,"运行中的任务已达上限")
         c.execute("SELECT COUNT(*) AS n FROM osint_runs WHERE owner_id=%s AND created_at >= DATE(UTC_TIMESTAMP()+INTERVAL 8 HOUR)-INTERVAL 8 HOUR",(uid,))
-        if c.fetchone()["n"]>=daily_limit:
+        if c.fetchone()["n"]>=daily_limit and not unlimited:
             raise HTTPException(429,"今日任务次数已达上限")
-        if not row["available"]:
+        if not row["available"] and not unlimited:
             raise HTTPException(409,{"code":"insufficient_credit","message":"旅行额度不足"})
         for item in payload["attachment_ids"]:
             c.execute("SELECT id FROM travel_attachments WHERE owner_id=%s AND id=%s",(uid,item))
             if not c.fetchone():
                 raise HTTPException(404,"附件不存在")
         store.insert_run(c,uid,state)
-        c.execute("INSERT INTO travel_requests VALUES (%s,%s,%s,%s,%s,'reserved')",
-                  (state["id"],uid,key,fingerprint,json.dumps(payload)))
+        c.execute("INSERT INTO travel_requests VALUES (%s,%s,%s,%s,%s,%s)",
+                  (state["id"],uid,key,fingerprint,json.dumps(payload), 'exempt' if unlimited else 'reserved'))
+        if unlimited:
+            return state['id']
         c.execute("UPDATE travel_accounts SET available=available-1,reserved=reserved+1 WHERE owner_id=%s",(uid,))
         return state["id"]
 
@@ -81,7 +85,7 @@ def transition(store,uid,rid,target):
         row=account(c,uid)
         c.execute("SELECT credit_state FROM travel_requests WHERE run_id=%s AND owner_id=%s FOR UPDATE",(rid,uid))
         req=c.fetchone()
-        if not req or req["credit_state"]==target:
+        if not req or req["credit_state"] in (target, "exempt"):
             return
         change = {("released","reserved"):(-1,1,0),("reserved","released"):(1,-1,0),
                   ("reserved","used"):(0,-1,1)}.get((req["credit_state"],target))
