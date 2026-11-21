@@ -2,6 +2,9 @@
 import asyncio
 from datetime import date as Date, datetime, timedelta
 import io
+import os
+import base64
+from time import monotonic
 from typing import Literal
 import uuid
 
@@ -13,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from travel_departures import TravelMode, KINDS, directory, search
 from travel_profile import Region, Gender
 import travel_store
-from travel_tools import CHINA, catalog
+from travel_tools import CHINA, catalog, invoke, forecast, rail
 import web_auth
 
 router = APIRouter(prefix="/api/travel")
@@ -190,9 +193,108 @@ def attachment(aid:str,request:Request):
     return Response(row["content"],media_type="image/jpeg",headers={"Cache-Control":"private, no-store"})
 
 
+_home_cache = {}
+_home_lock = asyncio.Lock()
+_voice_slots = asyncio.Semaphore(2)
+
+
 @router.get("/home-weather")
-def home_weather():
-    return {"location":"贵阳","kind":"unknown","condition":"暂无新鲜降雨观测","as_of":None,"stale":True,"data_mode":"live"}
+async def home_weather():
+    today = datetime.now(CHINA).date().isoformat()
+    async with _home_lock:
+        if _home_cache.get("day") == today and _home_cache["until"] > monotonic():
+            return _home_cache["weather"]
+        fields = ["weather_code", "temperature_2m_min", "temperature_2m_max", "precipitation_probability_max"]
+        try:
+            raw = await invoke("weather_forecast", {"latitude":26.58,"longitude":106.71,"timezone":"Asia/Shanghai",
+                                "start_date":today,"end_date":today,"daily":fields})
+            daily = raw["daily"]
+            if raw["timezone"] != "Asia/Shanghai" or daily["time"] != [today]:
+                raise ValueError("日期或时区不符")
+            weather = {"location":"贵阳","kind":"forecast","stale":False,"data_mode":"live",
+                       "as_of":datetime.now(CHINA).isoformat(timespec="seconds"), **{key:daily[key][0] for key in fields}}
+            if not all(isinstance(weather[key], (int,float)) for key in fields):
+                raise ValueError("预报数据不全")
+            code = weather["weather_code"]
+            weather["condition"] = next((name for maximum, name in
+                [(0,"晴"),(2,"少云"),(3,"阴"),(48,"雾"),(57,"毛毛雨"),(67,"雨"),(77,"雪"),(82,"阵雨"),(86,"阵雪"),(99,"雷雨")]
+                if code <= maximum), "天气类型待确认")
+            ttl = 900
+        except Exception:
+            weather = {"location":"贵阳","kind":"unknown","condition":"预报暂不可用","stale":True,"as_of":None,"data_mode":"live"}
+            ttl = 30
+        _home_cache.update(day=today, until=monotonic()+ttl, weather=weather)
+        return weather
+
+
+def check_forecast_day(day, horizon):
+    if not 0 <= (day - datetime.now(CHINA).date()).days < horizon:
+        raise HTTPException(422, "该日期已超出可补查的窗口，请查看已保存的资料。")
+
+
+@router.get("/forecast-day")
+async def forecast_day(poi_id: str, day: Date):
+    check_forecast_day(day, 16)
+    try:
+        return await forecast(poi_id, day, day)
+    except Exception:
+        raise HTTPException(503, "暂时无法补查目的地预报，可稍后重试。")
+
+
+@router.get("/rail-day")
+async def rail_day(departure_id: str, arrival_id: str, day: Date):
+    check_forecast_day(day, 15)
+    rows = directory()[1]
+    pair = [rows.get(key) for key in (departure_id, arrival_id)]
+    if any(not r or r["kind"] != "station" for r in pair) or departure_id == arrival_id:
+        raise HTTPException(422, "请确认不同的出发和到达车站。")
+    try:
+        result = await rail(pair[0]["name"], pair[1]["name"], day.isoformat())
+        return {**result, "as_of":datetime.now(CHINA).isoformat(timespec="seconds")}
+    except Exception:
+        raise HTTPException(503, "铁路查询暂时不可用，请到 12306 复核。")
+
+
+class Narration(BaseModel):
+    text: str = Field(min_length=1, max_length=450)
+
+
+@router.post("/guide-voice")
+async def guide_voice(body: Narration):
+    if os.name != "nt":
+        raise HTTPException(503, "当前服务未安装系统中文语音。")
+    # The script is constant. Visitor text is sent only over stdin.
+    script = r"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Speech
+$s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+try {
+    $v = $s.GetInstalledVoices() | Where-Object {$_.Enabled -and $_.VoiceInfo.Culture.Name -eq 'zh-CN'} | Select-Object -First 1
+    if (!$v) {throw 'Chinese voice unavailable'}
+    $s.SelectVoice($v.VoiceInfo.Name)
+    $m = New-Object System.IO.MemoryStream
+    $s.SetOutputToWaveStream($m)
+    $s.Speak([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([Console]::ReadLine())))
+    $s.SetOutputToNull()
+    $b = $m.ToArray()
+    [Console]::OpenStandardOutput().Write($b,0,$b.Length)
+} finally {$s.Dispose()}
+"""
+    async with _voice_slots:
+        proc = await asyncio.create_subprocess_exec("powershell.exe","-NoProfile","-NonInteractive","-Command",script,
+                    stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL,
+                    creationflags=0x08000000)
+        try:
+            data, _ = await asyncio.wait_for(proc.communicate(base64.b64encode(body.text.encode())+b"\n"), 18)
+        except TimeoutError:
+            raise HTTPException(503, "中文语音生成超时。")
+        finally:
+            if proc.returncode is None:
+                proc.kill()
+                await proc.wait()
+    if proc.returncode or not data.startswith(b"RIFF"):
+        raise HTTPException(503, "当前服务未提供中文语音。")
+    return Response(data, media_type="audio/wav", headers={"Cache-Control":"private, no-store"})
 
 
 @router.get("/scenic-cards/{poi_id}")

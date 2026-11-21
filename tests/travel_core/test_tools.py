@@ -44,6 +44,26 @@ class ProviderTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await forecast("gate",d,d,call)
 
+    async def test_home_forecast_accepts_zero_and_caches_by_day(self):
+        import travel_api
+        from datetime import datetime
+        today=datetime.now(travel_api.CHINA).date().isoformat()
+        raw={"timezone":"Asia/Shanghai","daily":{"time":[today],"weather_code":[3],
+             "temperature_2m_min":[0],"temperature_2m_max":[8],"precipitation_probability_max":[0]}}
+        with patch.object(travel_api,"_home_cache",{}), patch.object(travel_api,"invoke",AsyncMock(return_value=raw)) as call:
+            result=await travel_api.home_weather()
+            self.assertEqual((result["kind"],result["condition"],result["temperature_2m_min"]),("forecast","阴",0))
+            self.assertEqual(await travel_api.home_weather(),result)
+            call.assert_awaited_once()
+
+    async def test_home_weather_unavailable(self):
+        import travel_api
+        with patch.object(travel_api,"_home_cache",{}), patch.object(travel_api,"invoke",AsyncMock(side_effect=TimeoutError)):
+            result=await travel_api.home_weather()
+            self.assertEqual(result["kind"],"unknown")
+            self.assertTrue(result["stale"])
+            self.assertIsNone(result["as_of"])
+
     def test_budget(self):
         rows=[{"label":"费用","quantity":q,"lower_fen":p,"upper_fen":p} for q,p in
               [(2,28000),(2,19000),(6,8000),(2,26000)]]

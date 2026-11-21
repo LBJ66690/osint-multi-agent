@@ -55,6 +55,45 @@ def budget(lines, limit):
             "missing_costs":[r["label"] for r in lines if r["upper_fen"] is None]}
 
 
+REGIONAL_STATIONS = {"贵阳":"贵阳北站","遵义":"遵义站","六盘水":"六盘水站","安顺":"安顺西站","毕节":"毕节站",
+                     "铜仁":"铜仁站","黔东南":"凯里南站","黔南":"都匀东站","黔西南":"兴义站"}
+
+
+def day_suggestions(days, trip, cards):
+    places = [cards[key] for key in trip.get("poi_ids", []) if key in cards]
+    if not places:
+        return []
+    result = []
+    for i, day in enumerate(days):
+        place = places[min(len(places)-1, i*len(places)//len(days))]
+        name = place["name"]
+        if len(days) == 1:
+            title = name + "一日游"
+            notes = ["出发前确认到达站和入园方式。", place["description"], "按返程车票倒推离开景区的时间。"]
+        elif i == 0:
+            title = "抵达与熟悉环境"
+            notes = [f"从{trip.get('origin') or '出发地'}出发，先确认到站后的接驳，再前往{name}。",
+                     "下午可先在入口附近短程慢走，抵达较晚可直接入住。"]
+        elif i == len(days)-1:
+            title = "收拾行李与返程"
+            notes = [f"上午安排{name}附近的短程活动，退房前核对随身物品。", "按已购票的发车时间倒推接驳和进站时间，留足候车余量。"]
+        elif place["poi_id"] == "xijiang-miao-village" and i <= 4:
+            title, notes = [
+                ("吊脚楼街巷慢游", ["上午沿村寨公共街巷看吊脚楼，按体力选择坡度。", "午后在村内休息，把较长的步行留到凉爽时段。"]),
+                ("风雨桥与河谷", ["上午从风雨桥附近开始沿河散步，观察村寨与河谷的布局。", "午后沿原路折返，雨天缩短河边停留时间。"]),
+                ("村寨建筑与摄影", ["选一段走过的公共街巷，留出时间观察木楼细部。", "傍晚可在公共区域拍摄村寨，原路返回住宿点。"]),
+                ("自由活动与机动时间", ["从前几日喜欢的桥或街巷中选一处重访。", "下午休息并确认次日离寨交通。"]),
+            ][i-1]
+        elif i == 1 or place != places[0]:
+            title = name + "游览"
+            notes = [place["description"], "午后按开放范围与体力选一段短线，留出用餐和往返时间。"]
+        else:
+            title = "自由活动与休整"
+            notes = [f"在{name}选择尚未走过的开放区域，或重访前一天喜欢的地点。", "如遇降雨，可缩短步行或将半天留作休整。"]
+        result.append({"date":day["date"], "title":title, "suggestions":notes})
+    return result
+
+
 async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
     route_call = route_call or route
     weather_call = weather_call or forecast
@@ -139,14 +178,12 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
     forecasts=[]
     travel_mode = trip.get("travel_mode")
     regions = {cards[p]["region"] for p in requested if cards.get(p, {}).get("region")}
-    gateways = {"贵阳":"贵阳北站","遵义":"遵义站","六盘水":"六盘水站","安顺":"安顺西站","毕节":"毕节站",
-                "铜仁":"铜仁站","黔东南":"凯里南站","黔南":"都匀东站","黔西南":"兴义站"}
     fanjing = any(p.startswith("fanjingshan") for p in requested)
     has_ticket = bool((trip.get("ticket_fields") or {}).get("arrival_station"))
     legacy_rail = not travel_mode and fanjing and trip.get("origin") in ("贵阳","贵阳北","贵阳北站")
     if not has_ticket and (travel_mode in ("high_speed","rail") or legacy_rail):
         origin = trip["origin"] if travel_mode else "贵阳北"
-        destinations = [gateways[r] for r in sorted(regions) if r in gateways]
+        destinations = [REGIONAL_STATIONS[r] for r in sorted(regions) if r in REGIONAL_STATIONS]
         if "铜仁站" in destinations:
             destinations.append("铜仁南站")
         if destinations:
@@ -307,9 +344,11 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
         missing.append(f"已知最低超支 {(costs['known_lower_fen']-limit)/100:.2f} 元，请选择调整行程或增加预算")
     plan={"outcome":"infeasible" if costs["budget_status"]=="over" else "needs_confirmation" if missing else "ready","days":days,"legs":legs,"weather_alternatives":alternatives,
           "railway":railway,"weather":forecasts,"transport_options":options,"budget":costs,"booking_entries":bookings,"media":media,"evidence_ids":[e["id"] for e in evidence],"unresolved":missing}
+    for day, advice in zip(days, day_suggestions(days, trip, cards)):
+        day.update(advice)
     lines=["# 贵州旅行报告",state.task]
     for day in days:
-        lines.extend(["## "+day["date"],*day["activities"],"依据 "+"、".join(day["evidence_ids"])])
+        lines.extend(["## "+day["date"]+" · "+day["title"],*["游览建议："+text for text in day.get("suggestions",[])],*day["activities"],"依据 "+"、".join(day["evidence_ids"])])
     lines.append("## 预算")
     for label, amount in travel_cards.budget_rows(trip, costs):
         lines.append(label + "：" + ("待报价" if amount is None else f"{amount:g} 元"))

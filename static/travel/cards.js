@@ -1,4 +1,4 @@
-import {make, button, link} from './ui.js';
+import {make, button} from './ui.js';
 
 function exportText(body, name) {
   const url = URL.createObjectURL(new Blob(['\uFEFF', body], {type:'text/plain;charset=utf-8'}));
@@ -10,22 +10,13 @@ function exportText(body, name) {
 }
 
 export function renderFormat(root, detail) {
-  if (!detail.report_format) return;
+  if (!detail.card_report || detail.rendered_format !== 'cards') return;
   const title = root.querySelector('h1').textContent;
   const hero = root.firstElementChild;
   const evidence = make('details',null,'report-evidence');
   evidence.append(make('summary','交通、天气、预约及费用依据'), ...Array.from(root.children).slice(1));
   root.replaceChildren(hero);
   const card = detail.card_report;
-  if (detail.rendered_format !== 'cards' || !card) {
-    const section=make('section',null,'journey-card plain-report');
-    const text=detail.reports?.find(item=>item.markdown)?.markdown;
-    section.append(make('h2',detail.report_format==='cards'?'本次已生成纯文本报告':'纯文本旅行报告'));
-    if(text) section.append(make('pre',text),button('下载旅行文本',()=>exportText(text,title)));
-    else if(detail.data_mode!=='fixture') section.append(link('打开已保存的报告','/api/runs/'+encodeURIComponent(detail.id)+'/report.md'));
-    root.append(section,evidence);
-    return;
-  }
   const labels=['怎么到','怎么玩','怎么选','同行卡'];
   const scenes = card.scenes.map((scene,i)=>{
     const box=make('details',null,'journey-card scene');

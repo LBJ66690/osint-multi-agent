@@ -871,7 +871,18 @@ async def get_run(run_id: str, request: Request = None):
     checkpoint = None
     if state.store and state.status in {"error", "cancelled"}:
         checkpoint = await asyncio.to_thread(state.store.load_checkpoint, state.id)
-    return state.to_detail(checkpoint)
+    detail = state.to_detail(checkpoint)
+    plan = detail.get("trip_plan")
+    if state.travel and plan:
+        trip = state.travel.get("trip", {})
+        cards = travel_plan.catalog()
+        places = [cards[key] for key in trip.get("poi_ids", []) if key in cards]
+        detail["trip_context"] = {"origin": trip.get("origin"), "travel_mode": trip.get("travel_mode"),
+            "departure_id": trip.get("departure_id"), "poi_ids": trip.get("poi_ids", []),
+            "candidate_station": travel_plan.REGIONAL_STATIONS.get(places[0]["region"]) if places else None}
+        if plan.get("days") and not any(day.get("suggestions") for day in plan["days"]):
+            detail["day_suggestions"] = travel_plan.day_suggestions(plan["days"], trip, cards)
+    return detail
 
 
 @app.get("/api/runs/{run_id}/sag-evidence/{evidence_id}")

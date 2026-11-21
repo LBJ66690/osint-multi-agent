@@ -172,7 +172,7 @@ async function demoFlow(browser, url, errors) {
   await page.locator('#open-profile').click();
   await page.getByRole('button', {name: '跳过'}).click();
   await page.locator('#voice').click();
-  await waitText(page, '#voice', '本地中文语音不可用');
+  await waitText(page, '#voice', '样例模式缺少浏览器中文语音');
   await page.waitForFunction(() => document.querySelector('#guide').dataset.action === 'umbrella');
   await page.locator('#motion').click();
   assert.equal(await page.locator('#motion').getAttribute('aria-pressed'), 'true');
@@ -206,17 +206,21 @@ async function demoFlow(browser, url, errors) {
   assert.match(await page.locator('#report-body').getByRole('link', {name: /查看官方预约方式/}).getAttribute('href'), /fanjingshan\.gz\.cn/);
   await screenshot(page, 'desktop-report.png', '#report');
   assert.equal(await page.locator('#download').isVisible(), false);
-  await page.locator('#open-chat').click();
+  assert.equal(await page.locator('#guide-chat').isVisible(),true);
+  assert.equal(await page.locator('#chat-model, #report-format').count(),0);
   await page.locator('#question').fill('从哪里预约？');
   await page.locator('#ask').click();
   await waitText(page, '#chat-turns', '样例回答');
-  await page.locator('#chat-dialog [data-close]').click();
   await page.goBack();
-  await page.locator('#history-list button').first().click();
+  await page.locator('#history-list a').first().click();
+  await page.waitForURL(url=>url.searchParams.has('travel_report'));
+  assert.equal(await page.locator('#report').isVisible(),true);
+  await page.goBack();
   await waitText(page, '#run-status', '已完成');
   await waitText(page, '#credits', '已用 1 次');
   assert.equal(await page.evaluate(() => window.travelEffects.filter(event => event.call_id === 'q1').length), 1);
   await startSample(page);
+  assert.equal(await page.locator('#view-report').isVisible(),false);
   await waitText(page, '#draft-error', '可用额度不足');
   await page.locator('#open-order').click();
   for (const [result, label] of [['failed', '失败'], ['cancelled', '已取消'], ['success', '成功']]) {

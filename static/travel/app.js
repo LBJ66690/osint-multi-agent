@@ -39,7 +39,7 @@ async function init() {
   const demo = params.get('demo') === 'travel' ? createDemo() : null;
   const request = demo?.request || liveRequest;
   const events = demo?.openEvents || liveEvents;
-  const seeWeather = setupGuide();
+  const seeWeather = setupGuide(!demo);
   if (demo) {
     $('demo-banner').hidden = false;
     $('home-link').href = '/?demo=travel';
@@ -61,7 +61,9 @@ async function init() {
   window.addEventListener('hashchange',accountView);
   accountView();
   const sessionExpired = () => show('notice', '会话已失效，请在页面下方重新登录。');
-  function invalidate() {
+  let runs;
+  function invalidate(userEdit = true) {
+    if(userEdit)runs?.draftChanged();
     version++;
     $('draft-preview').hidden = true;
     $('draft-preview').replaceChildren();
@@ -99,7 +101,7 @@ async function init() {
           filled = true;
         }
       }
-      if (filled) invalidate();
+      if (filled) invalidate(false);
     },
   });
   const report = setupReport(request, catalog, !!demo);
@@ -113,6 +115,7 @@ async function init() {
       report.clear();
       document.documentElement.classList.remove('journal-mode');
       document.title='贵州山水';
+      accountView();
     }
   });
   if(params.has('travel_report') || params.has('history_report')){
@@ -138,7 +141,7 @@ async function init() {
     }
     return;
   }
-  const runs = setupRuns(request, events, report, account.refresh);
+  runs = setupRuns(request, events, report, account.refresh);
   const input = $('task');
   const form = $('draft-form');
 
@@ -183,7 +186,6 @@ async function init() {
       ++searchGeneration;
       setInput('travelers', 2);
       setInput('budget-scope', 'group');
-      $('report-format').value='cards';
       $('round-trip').checked = true;
     }
     invalidate();
@@ -257,8 +259,8 @@ async function init() {
         start.disabled = $('preview').disabled = true;
         show('draft-error', '');
         try {
-          await runs.start({domain: 'guizhou_travel', task, trip, report_format:$('report-format').value, attachment_ids: attachmentIds});
-          invalidate();
+          await runs.start({domain: 'guizhou_travel', task, trip, report_format:'cards', attachment_ids: attachmentIds});
+          invalidate(false);
         } catch (error) {
           if (error.status === 401) sessionExpired();
           show('draft-error', error.message);

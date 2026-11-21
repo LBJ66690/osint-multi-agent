@@ -1,3 +1,4 @@
+import {weatherName} from './journey.js';
 import {$, dateTime, make} from './ui.js';
 
 const people = {
@@ -16,18 +17,25 @@ function localVoice() {
   catch { return null; }
 }
 
-export function setupGuide() {
+export function setupGuide(allowServerVoice) {
   const image = $('guide-image');
   const guide = $('guide');
   const speech = $('voice');
   let voiceOn = getSetting('travel-guide-voice') === 'true';
   let utterance;
+  let audio, audioUrl, controller;
+  let voiceGeneration = 0;
   let lastText = $('guide-message').textContent;
   let backgroundAction = 'idle';
   let foregroundAction = null;
   let timer;
 
   function stop() {
+    voiceGeneration++;
+    controller?.abort();
+    controller=undefined;
+    if(audio){audio.pause();audio=undefined;}
+    if(audioUrl){URL.revokeObjectURL(audioUrl);audioUrl=undefined;}
     if (utterance) {
       utterance = undefined;
       window.speechSynthesis?.cancel();
@@ -40,23 +48,39 @@ export function setupGuide() {
     speech.textContent = title || (enabled ? '语音：开' : '语音：关');
     if (!enabled) stop();
   }
+  async function serverSpeech(text, generation) {
+    if (generation !== voiceGeneration || !voiceOn) return;
+    if (!allowServerVoice) {setVoice(false,'样例模式缺少浏览器中文语音');return;}
+    controller=new AbortController();
+    try {
+      const res=await fetch('/api/travel/guide-voice',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text:text.slice(0,450)}),signal:controller.signal});
+      if (!res.ok) throw new Error();
+      const blob=await res.blob();
+      if (generation !== voiceGeneration) return;
+      audioUrl=URL.createObjectURL(blob);
+      audio=new Audio(audioUrl);
+      audio.onended=()=>{if(generation===voiceGeneration)stop();};
+      await audio.play();
+    } catch { if(generation===voiceGeneration)setVoice(false,'播放失败 · 点击重试'); }
+  }
   function speak(text) {
     if (!voiceOn || document.hidden || document.querySelector('dialog[open]')) return;
-    const voice = localVoice();
-    if (!voice || typeof SpeechSynthesisUtterance !== 'function') {
-      setVoice(false, '本地中文语音不可用');
+    stop();
+    const generation=voiceGeneration;
+    const voice=localVoice();
+    if (!voice || typeof SpeechSynthesisUtterance!=='function') {
+      void serverSpeech(text,generation);
       return;
     }
     try {
-      stop();
-      const job = new SpeechSynthesisUtterance(text);
-      job.voice = voice;
-      job.lang = voice.lang;
-      job.onend = () => { if (utterance === job) utterance = undefined; };
-      job.onerror = () => { if (utterance === job) setVoice(false, '语音无法播放'); };
-      utterance = job;
+      const job=new SpeechSynthesisUtterance(text);
+      job.voice=voice;job.lang=voice.lang;
+      job.onend=()=>{if(utterance===job)utterance=undefined;};
+      job.onerror=()=>{if(utterance===job){utterance=undefined;void serverSpeech(text,generation);}};
+      utterance=job;
       window.speechSynthesis.speak(job);
-    } catch { setVoice(false, '语音无法播放'); }
+    } catch { void serverSpeech(text,generation); }
   }
   function setPerson() {
     const id = $('guide-select').value;
@@ -112,8 +136,7 @@ export function setupGuide() {
   });
   speech.addEventListener('click', () => {
     if (voiceOn) setVoice(false);
-    else if (localVoice() && typeof SpeechSynthesisUtterance === 'function') {setVoice(true);speak(lastText);}
-    else setVoice(false, '本地中文语音不可用');
+    else {setVoice(true);speak(lastText);}
   });
   const motion = $('motion');
   let reduce = getSetting('travel-reduce-motion') === 'true';
@@ -155,18 +178,19 @@ export function setupGuide() {
     const city = typeof weather?.location === 'string' ? weather.location : weather?.location?.name;
     const timestamp = dateTime(weather?.as_of);
     const isGuiyang = /^(贵州省)?贵阳市?$/.test(city || '');
-    const isRain = /雨|rain/i.test(weather?.condition || '');
+    const condition = weather?.condition || (weather?.weather_code!=null ? weatherName(weather.weather_code) : '');
+    const isRain = /雨|rain/i.test(condition) || weather?.precipitation_probability_max>=50;
     const available = isGuiyang && weather.stale === false && timestamp && ['observation', 'forecast'].includes(weather.kind);
     if (!available) {
       $('weather').textContent = '贵阳 · 天气待查';
-      $('weather-time').textContent = '实况暂不可用';
+      $('weather-time').textContent = '暂未取得预报';
       $('weather-icon').textContent = '☁';
       backgroundAction = 'idle';
     } else {
       const observation = weather.kind === 'observation';
-      $('weather').textContent = `${city} · ${weather.condition || '天气待查'}`;
-      $('weather-time').textContent = `${observation ? '观测' : '预报'} ${timestamp}${!observation && isRain ? ' · 建议带伞' : ''}${weather.data_mode === 'cache' ? ' · 缓存' : weather.data_mode === 'fixture' ? ' · 回放' : ''}`;
-      $('weather-icon').textContent = isRain ? '☂' : '☀';
+      $('weather').textContent = `${city} · ${condition}`;
+      $('weather-time').textContent = `${weather.temperature_2m_min!=null ? weather.temperature_2m_min+'～'+weather.temperature_2m_max+'°C · ' : ''}${observation ? '观测' : '预报'} ${timestamp}${!observation && isRain ? ' · 建议带伞' : ''}${weather.data_mode === 'cache' ? ' · 缓存' : weather.data_mode === 'fixture' ? ' · 回放' : ''}`;
+      $('weather-icon').textContent = isRain ? '☂' : /阴|云|雾/.test(condition) ? '☁' : '☀';
       backgroundAction = observation && isRain ? 'umbrella' : 'idle';
     }
     drawAction();

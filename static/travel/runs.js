@@ -119,10 +119,15 @@ export function setupRuns(request, events, report, refreshBalance) {
       for (const [id, event] of (detail.events || []).entries()) {
         if (typeof event?.type === 'string') track(event, Number.isInteger(event.id) ? event.id : id, true);
       }
+      const restoring = run.status === 'loading';
       run.status = detail.status;
       run.resumable = detail.resume_info?.unavailable !== true;
       $('reload-run').hidden = true;
       if (detail.status === 'done') {
+        if (sessionStorage.getItem('travel-current-run') !== run.id) {
+          resetCompleted();
+          return;
+        }
         report.offer(detail);
         view('旅行报告已完成，可以查看路线、预算和来源。', {snapshot: !followStream, completed: true});
       } else if (detail.status === 'error') {
@@ -130,6 +135,7 @@ export function setupRuns(request, events, report, refreshBalance) {
       } else if (detail.status === 'cancelled') {
         view('任务已取消，可按服务端状态从断点继续。', {snapshot: true});
       } else {
+        if(restoring && !run.draftChanged)sessionStorage.setItem('travel-current-run',run.id);
         if (followStream) {
           run.emptyEnds++;
           const retry = run.emptyEnds <= 3;
@@ -167,7 +173,10 @@ export function setupRuns(request, events, report, refreshBalance) {
       for (const row of data.runs || []) {
         if ((row.domain ?? row.summary?.domain) !== domain || !(row.id || row.run_id)) continue;
         const item = make('li');
-        item.append(button(`${(row.task || '旅行任务').replace(/^帮我拟一个|^帮我拟一份/,'').replace(/的旅游计划。?$/,'')} · ${labels[row.status] || row.status}`, async () => {
+        const label = `${(row.task || '旅行任务').replace(/^帮我拟一个|^帮我拟一份/,'').replace(/的旅游计划。?$/,'')} · ${labels[row.status] || row.status}`;
+        const id = row.id || row.run_id;
+        if (row.status === 'done') item.append(report.historyLink(id, label));
+        else item.append(button(label, async () => {
           await open(row.id || row.run_id);
           $('progress').scrollIntoView({block: 'start'});
         }, 'text-button'));
@@ -194,6 +203,7 @@ export function setupRuns(request, events, report, refreshBalance) {
       const result = await request('/api/runs', {method: 'POST', body, key: activeRequest.key});
       if (!result.run_id) throw new Error('服务尚未返回任务编号，请重试。');
       activeRequest = null;
+      sessionStorage.setItem('travel-current-run',result.run_id);
       const nonce = initialize(result.run_id, 'running');
       view('已提交，等待真实进度。', {snapshot: true, newRun: true});
       $('progress').scrollIntoView({block: 'start'});
@@ -216,6 +226,7 @@ export function setupRuns(request, events, report, refreshBalance) {
     try {
       await request(`${runPath(id)}/${action}`, {method: 'POST', body: {}});
       if (nonce !== generation) return;
+      if (action === 'resume') sessionStorage.setItem('travel-current-run',id);
       await readDetail(nonce);
     } catch (error) {
       if (nonce === generation) {
@@ -238,5 +249,26 @@ export function setupRuns(request, events, report, refreshBalance) {
   $('load-history').addEventListener('click', loadHistory);
   window.addEventListener('pagehide', closeStream);
   window.addEventListener('pageshow', event => { if (event.persisted && run && !final.has(run.status)) void readDetail(++generation); });
-  return {open, loadHistory, start};
+  function resetCompleted() {
+    if (!run || run.status !== 'done') return;
+    closeStream();
+    ++generation;
+    run = null;
+    sessionStorage.removeItem('travel-current-run');
+    const url = new URL(location.href);
+    url.searchParams.delete('run');
+    history.replaceState(history.state, '', url);
+    $('view-report').hidden = true;
+    $('view-report').removeAttribute('href');
+    $('run-status').textContent = '等待需求';
+    document.dispatchEvent(new CustomEvent('osint:view',{detail:{domain,newRun:true,snapshot:true,
+      message:'请告诉我你的旅行需求吧。先选景点，再一起确认行程。'}}));
+  }
+  function draftChanged(){
+    if (!run) return;
+    run.draftChanged=true;
+    if (sessionStorage.getItem('travel-current-run') === run.id) sessionStorage.removeItem('travel-current-run');
+    resetCompleted();
+  }
+  return {open, loadHistory, start, draftChanged};
 }
