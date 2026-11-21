@@ -5,20 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>账号登录 · 贵州山水</title>
-  <link rel="stylesheet" href="/static/auth.css?v=2">
+  <link rel="stylesheet" href="/static/auth.css?v=1121b">
   <script src="/static/auth.js?v=3" defer></script>
   <script type="module" src="/static/travel/auth-gallery.js"></script>
 </head>
 <body class="auth-page">
   <main class="auth-layout">
-    <section class="auth-intro" aria-labelledby="platform-title">
-      <div class="auth-brand"><span class="auth-mark" aria-hidden="true">◇</span> 贵州山水</div>
-      <div class="travel-pictures" id="travel-pictures">
-        <h1 id="platform-title">贵州山水</h1><p class="album-heading">九州实景画卷</p>
-        <figure><img id="auth-photo" alt=""><span class="panorama-mist" aria-hidden="true"></span><figcaption><strong id="auth-place">贵州风景</strong> <a id="photo-credit" target="_blank" rel="noopener noreferrer">实景来源</a></figcaption></figure>
-        <div class="picture-controls"><button id="photo-prev" type="button">上一景</button><button id="photo-play" type="button">暂停巡游</button><button id="photo-next" type="button">下一景</button><button id="photo-full" type="button">全屏赏景</button></div><div id="photo-places" class="photo-places" aria-label="选择景点"></div>
-      </div>
-    </section>
     <section class="auth-panel" aria-labelledby="auth-title">
       <nav class="auth-tabs" aria-label="账户操作">
         <a id="login-tab" href="/login">登录</a>
@@ -40,6 +32,14 @@
         <p class="auth-feedback" id="auth-feedback" role="alert" hidden></p>
         <button id="auth-submit" type="submit" disabled>登录</button>
       </form>
+    </section>
+    <section class="auth-intro" aria-labelledby="platform-title">
+      <div class="auth-brand"><span class="auth-mark" aria-hidden="true">◇</span> 贵州山水</div>
+      <div class="travel-pictures" id="travel-pictures">
+        <h1 id="platform-title">贵州山水</h1><p class="album-heading">九州实景画卷</p>
+        <figure><img id="auth-photo" alt=""><span class="panorama-mist" aria-hidden="true"></span><figcaption><strong id="auth-place">贵州风景</strong> <a id="photo-credit" target="_blank" rel="noopener noreferrer">实景来源</a></figcaption></figure>
+        <div class="picture-controls"><button id="photo-prev" type="button">上一景</button><button id="photo-play" type="button">暂停巡游</button><button id="photo-next" type="button">下一景</button><button id="photo-full" type="button">全屏赏景</button></div><div id="photo-places" class="photo-places" aria-label="选择景点"></div>
+      </div>
     </section>
   </main>
 </body>
