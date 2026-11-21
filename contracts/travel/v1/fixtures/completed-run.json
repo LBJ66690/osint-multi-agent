@@ -1,0 +1,60 @@
+{
+  "id": "demo-fjs",
+  "domain": "guizhou_travel",
+  "status": "done",
+  "data_mode": "fixture",
+  "reports": [
+    {
+      "type": "旅行报告"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "title": "东门地图点位（回放）",
+      "url": "https://www.openstreetmap.org/node/7491137369",
+      "data_mode": "fixture"
+    }
+  ],
+  "trip_plan": {
+    "outcome": "needs_confirmation",
+    "days": [
+      {
+        "date": "2026-11-20",
+        "title": "东门接驳",
+        "activities": [
+          "路线待查，需确认到站时间与预约时段"
+        ],
+        "evidence_ids": [
+          "E1"
+        ]
+      }
+    ],
+    "budget": {
+      "known_lower_fen": 0,
+      "upper_fen": null,
+      "missing_costs": [
+        "接驳"
+      ],
+      "lines": []
+    },
+    "weather_alternatives": [],
+    "booking_entries": [
+      {
+        "poi_id": "fanjingshan-east"
+      }
+    ],
+    "media": [
+      {
+        "poi_id": "fanjingshan",
+        "image_id": "fanjingshan-photo"
+      }
+    ],
+    "evidence_ids": [
+      "E1"
+    ],
+    "unresolved": [
+      "路线服务未返回估算"
+    ]
+  }
+}

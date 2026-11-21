@@ -1,0 +1,1 @@
+{"name":"guizhou-travel-mcp","private":true,"dependencies":{"12306-mcp":"0.3.10","open-meteo-mcp-server":"2.5.6","osm-mcp":"0.3.2"}}

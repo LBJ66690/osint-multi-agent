@@ -1,0 +1,12 @@
+id: 0
+data: {"type": "tool_call", "stage": "collecting", "tool": "route.leg", "call_id": "route-1", "message": "查询东门接驳", "run_id": "demo-fjs", "data_mode": "fixture"}
+
+id: 1
+data: {"type": "tool_error", "stage": "collecting", "tool": "route.leg", "call_id": "route-1", "message": "路线待查", "run_id": "demo-fjs", "data_mode": "fixture"}
+
+id: 2
+data: {"type": "done", "message": "报告已保存", "run_id": "demo-fjs", "data_mode": "fixture"}
+
+id: 3
+data: {"type": "stream_end", "run_id": "demo-fjs", "data_mode": "fixture"}
+

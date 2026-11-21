@@ -5,3 +5,10 @@
 !static/**
 !Dockerfile
 _toc.py
+!skills/
+!skills/travel/
+!skills/travel/**
+!scripts/
+!scripts/travel_eval/
+!scripts/travel_eval/mcp/
+!scripts/travel_eval/mcp/package*.json

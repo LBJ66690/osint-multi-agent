@@ -1,0 +1,10 @@
+{
+  "corpus_version": "demo-v1",
+  "hits": [{
+    "doc_id": "demo-note-01", "chunk_id": "c2", "poi_id": "fanjingshan-east",
+    "title": "东门雨天游览记录（回放样例）", "excerpt": "该游客称雨后候车时间较长。",
+    "source_type": "traveler_note", "source_url": null, "author_display": "团队样例",
+    "published_at": "2026-10-01", "retrieved_at": "2026-11-19T10:00:00+08:00",
+    "score": 0.78, "rights": "team_fixture"
+  }]
+}

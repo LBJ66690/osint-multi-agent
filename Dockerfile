@@ -1,3 +1,8 @@
+FROM node:24-bookworm-slim AS travel_node
+WORKDIR /mcp
+COPY scripts/travel_eval/mcp/package*.json ./
+RUN npm ci --omit=dev
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OSINT_STORAGE=mysql
@@ -8,6 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && useradd --system --gid osint osint \
     && install -d -o osint -g osint /service/outputs
 COPY *.py ./
+COPY --from=travel_node /usr/local/bin/node /usr/local/bin/node
+COPY --from=travel_node /mcp/node_modules ./scripts/travel_eval/mcp/node_modules
+COPY skills/travel/ ./skills/travel/
 COPY static/ ./static/
 USER osint
 EXPOSE 8765

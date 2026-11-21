@@ -92,7 +92,15 @@ def validate_username(value):
     return value.lower()
 
 
+def is_test_admin(user_id):
+    """Only the operator-provisioned local account can bypass per-user quotas."""
+    return (type(user_id) is int and str(user_id) == os.getenv("OSINT_TEST_ADMIN_ID")
+            and os.getenv("OSINT_PUBLIC_ORIGIN", "").startswith("http://127.0.0.1:"))
+
+
 async def use_limit(store, scope, identity, seconds, limit, detail):
+    if scope in {'run', 'chat'} and is_test_admin(identity):
+        return
     if not await asyncio.to_thread(store.rate_limit, scope, identity, seconds, limit):
         raise HTTPException(429, detail)
 

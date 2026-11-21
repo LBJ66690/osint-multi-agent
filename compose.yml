@@ -11,8 +11,9 @@ services:
     volumes:
       - osint_mysql_data:/var/lib/mysql
       - ./deploy/mysql/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./deploy/mysql/002_travel.sql:/docker-entrypoint-initdb.d/002_travel.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u osint osint -e 'SELECT version FROM osint_schema_versions WHERE version = 1'"]
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u osint osint -e 'SELECT IF(MAX(version)=2,1,0) FROM osint_schema_versions' -N | grep -qx 1"]
       interval: 5s
       timeout: 4s
       retries: 20
@@ -27,6 +28,15 @@ services:
       - "127.0.0.1:${OSINT_WEB_PORT:-8765}:8765"
     environment:
       OSINT_STORAGE: mysql
+      TRAVEL_KB_BASE_URL: ${TRAVEL_KB_BASE_URL:-}
+      TRAVEL_KB_TOKEN: ${TRAVEL_KB_TOKEN:-}
+      VARIFLIGHT_API_KEY: ${VARIFLIGHT_API_KEY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-}
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
+      SSL_CERT_FILE: ${SSL_CERT_FILE:-}
+      SSL_CERT_DIR: ${SSL_CERT_DIR:-}
       OSINT_PUBLIC_ORIGIN: http://127.0.0.1:${OSINT_WEB_PORT:-8765}
       OSINT_SECURE_COOKIE: "0"
       OSINT_DB_HOST: mysql
