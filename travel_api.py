@@ -194,24 +194,43 @@ def attachment(aid:str,request:Request):
 
 
 _home_cache = {}
-_home_lock = asyncio.Lock()
+# WGS84 city centres; prefectures use the seat of their government.
+WEATHER_CENTRES = {"贵阳":(26.58,106.71), "六盘水":(26.59,104.83), "毕节":(27.30,105.29),
+                   "安顺":(26.25,105.95), "遵义":(27.72,106.93), "铜仁":(27.72,109.19),
+                   "黔东南":(26.58,107.98), "黔南":(26.26,107.52), "黔西南":(25.09,104.90)}
+_home_locks = {region:asyncio.Lock() for region in WEATHER_CENTRES}
 _voice_slots = asyncio.Semaphore(2)
 
 
+@router.get("/history")
+def history_page(request: Request, page: int = 1):
+    store, uid = owner(request)
+    with store.cursor() as c:
+        c.execute("SELECT COUNT(*) AS n FROM travel_requests WHERE owner_id=%s",(uid,))
+        total = c.fetchone()["n"]
+        pages = max(1,(total+9)//10)
+        page = min(max(page,1),pages)
+        c.execute("""SELECT r.id,r.task,r.status FROM osint_runs r JOIN travel_requests t ON t.run_id=r.id
+                     WHERE t.owner_id=%s ORDER BY r.created_at DESC,r.id DESC LIMIT 10 OFFSET %s""",(uid,(page-1)*10))
+        return {"runs":c.fetchall(),"page":page,"pages":pages,"total":total}
+
+
 @router.get("/home-weather")
-async def home_weather():
+async def home_weather(region: Region = "贵阳"):
     today = datetime.now(CHINA).date().isoformat()
-    async with _home_lock:
-        if _home_cache.get("day") == today and _home_cache["until"] > monotonic():
-            return _home_cache["weather"]
+    lat,lon = WEATHER_CENTRES[region]
+    async with _home_locks[region]:
+        cached = _home_cache.get(region, {})
+        if cached.get("day") == today and cached["until"] > monotonic():
+            return cached["weather"]
         fields = ["weather_code", "temperature_2m_min", "temperature_2m_max", "precipitation_probability_max"]
         try:
-            raw = await invoke("weather_forecast", {"latitude":26.58,"longitude":106.71,"timezone":"Asia/Shanghai",
+            raw = await invoke("weather_forecast", {"latitude":lat,"longitude":lon,"timezone":"Asia/Shanghai",
                                 "start_date":today,"end_date":today,"daily":fields})
             daily = raw["daily"]
             if raw["timezone"] != "Asia/Shanghai" or daily["time"] != [today]:
                 raise ValueError("日期或时区不符")
-            weather = {"location":"贵阳","kind":"forecast","stale":False,"data_mode":"live",
+            weather = {"location":region,"kind":"forecast","stale":False,"data_mode":"live",
                        "as_of":datetime.now(CHINA).isoformat(timespec="seconds"), **{key:daily[key][0] for key in fields}}
             if not all(isinstance(weather[key], (int,float)) for key in fields):
                 raise ValueError("预报数据不全")
@@ -221,9 +240,9 @@ async def home_weather():
                 if code <= maximum), "天气类型待确认")
             ttl = 900
         except Exception:
-            weather = {"location":"贵阳","kind":"unknown","condition":"预报暂不可用","stale":True,"as_of":None,"data_mode":"live"}
+            weather = {"location":region,"kind":"unknown","condition":"预报暂不可用","stale":True,"as_of":None,"data_mode":"live"}
             ttl = 30
-        _home_cache.update(day=today, until=monotonic()+ttl, weather=weather)
+        _home_cache[region] = dict(day=today, until=monotonic()+ttl, weather=weather)
         return weather
 
 

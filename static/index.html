@@ -75,6 +75,11 @@
             <div class="actions">
               <button id="voice" type="button" aria-pressed="false">语音：关</button>
               <button id="motion" type="button" aria-pressed="false">减少动效</button>
+              <details class="voice-samples"><summary>试听候选声音</summary>
+                <a target="_blank" rel="noopener noreferrer" href="https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh/resolve/main/samples/HEARME_zf_001.wav">Kokoro 普通话女声 ↗</a>
+                <a target="_blank" rel="noopener noreferrer" href="https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh/resolve/main/samples/HEARME_zm_010.wav">Kokoro 普通话男声 ↗</a>
+                <a target="_blank" rel="noopener noreferrer" href="https://speech.microsoft.com/portal/voicegallery">微软语音库 · 搜索晓晓 ↗</a>
+              </details>
             </div>
           </div>
         </aside>
@@ -88,8 +93,10 @@
             <textarea id="task" rows="3" maxlength="4000" placeholder="例如：从贵阳出发，去梵净山玩三天"></textarea>
             <div class="fields">
               <label>出行方式<select id="travel-mode"><option value="high_speed">高铁动车</option><option value="rail">普速铁路</option><option value="air">飞机</option><option value="car">自驾</option><option value="coach">长途汽车</option><option value="tour">跟团游</option></select></label>
-              <label>搜索出发地<input id="origin" maxlength="80" placeholder="输入站名、城市或机场代码"></label>
-              <label>确认出发地<select id="departure" required><option value="">请选择目录中的地点</option></select></label>
+              <div class="departure-picker"><label for="origin">出发地</label>
+                <input id="origin" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="departure-options" autocomplete="off" required maxlength="80" placeholder="输入城市或车站名称">
+                <input id="departure" type="hidden"><div id="departure-options" role="listbox" aria-label="出发地候选" hidden></div>
+              </div>
               <label>人数<select id="travelers"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
               <label>出发日<input id="start-date" type="date"></label>
               <label>返程日<input id="end-date" type="date"></label>
@@ -125,16 +132,26 @@
     </section>
     <div class="secondary-grid">
       <section id="account" class="panel section" aria-labelledby="account-title">
-        <div class="panel-head"><h2 id="account-title">个人中心</h2><a class="account-return" href="#planner">返回行程草稿</a><span id="account-name"></span></div>
-        <p id="credits">正在读取账户信息…</p>
-        <div class="actions"><a id="login" class="button" href="/login">登录</a><a id="register" href="/register">注册</a><button type="button" id="open-profile" hidden>旅行偏好</button><button type="button" id="open-order" hidden>模拟购买</button><button type="button" id="logout" hidden>退出登录</button></div>
+        <header class="account-hero"><div id="member-avatar" aria-hidden="true">山</div><div><span class="account-kicker">我的贵州旅行</span><h2 id="account-title">个人中心</h2><span id="account-name"></span></div><a class="account-return" href="#planner">返回行程草稿</a></header>
+        <p id="credits" role="status">正在读取账户信息…</p><div id="credit-cards" hidden></div>
+        <div class="account-tools"><section><h3>旅行服务</h3><div class="actions"><a id="login" class="button" href="/login">登录</a><a id="register" href="/register">注册</a><button type="button" id="open-profile" hidden>旅行偏好</button><button type="button" id="open-order" hidden>模拟购买</button></div></section>
+        <section id="security-center" hidden><h3>账号与安全</h3><p id="member-info"></p><div class="actions">
+          <label class="avatar-upload button">更换头像<input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
+          <button type="button" data-setting="password">修改密码</button><a class="button" href="/recover">忘记密码</a>
+          <button type="button" data-setting="recovery-code">管理恢复码</button><button type="button" id="logout" hidden>退出登录</button>
+          <button type="button" class="danger-action" data-setting="close-account">注销账号</button>
+        </div><p id="security-message" role="status"></p></section></div>
       <p id="suggest-poi" hidden></p>
       <section class="section" id="history" aria-labelledby="history-title">
         <div class="panel-head"><h2 id="history-title">旅行记录</h2><button type="button" id="load-history" class="text-button">刷新</button></div>
-        <ul id="history-list"></ul>
+        <ul id="history-list"></ul><div id="history-pager" class="actions" hidden><button id="history-prev" type="button">上一页</button><span id="history-page" aria-live="polite"></span><button id="history-next" type="button">下一页</button></div>
       </section></section>
     </div>
   </main>
+  <dialog id="security-dialog" aria-labelledby="security-title"><div class="dialog-top"><h2 id="security-title">账号安全</h2><button type="button" data-close>关闭</button></div>
+    <p id="security-help"></p><form id="security-form"><label>当前密码<input id="current-password" type="password" required maxlength="128" autocomplete="current-password"></label>
+    <fieldset id="new-passwords" hidden disabled><label>新密码<input id="new-password" type="password" autocomplete="new-password" minlength="6" maxlength="128" required></label><label>确认新密码<input id="repeat-password" type="password" autocomplete="new-password" required></label></fieldset>
+    <button id="confirm-setting" class="primary">确认</button></form><p id="security-error" role="alert"></p><code id="new-recovery" hidden></code></dialog>
   <dialog id="poi-dialog" aria-labelledby="mobile-poi-title"><div class="dialog-top"><h2 id="mobile-poi-title">景点详情</h2><button type="button" data-close>关闭</button></div><div id="mobile-poi"></div></dialog>
   <dialog id="profile-dialog" aria-labelledby="profile-title">
     <div class="dialog-top"><h2 id="profile-title">旅行偏好</h2><button type="button" data-close>关闭</button></div>

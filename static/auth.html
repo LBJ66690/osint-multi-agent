@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>账号登录 · 贵州山水</title>
-  <link rel="stylesheet" href="/static/auth.css?v=1121b">
-  <script src="/static/auth.js?v=3" defer></script>
+  <link rel="stylesheet" href="/static/auth.css?v=1121c">
+  <script src="/static/auth.js?v=4" defer></script>
   <script type="module" src="/static/travel/auth-gallery.js"></script>
 </head>
 <body class="auth-page">
@@ -16,14 +16,17 @@
         <a id="login-tab" href="/login">登录</a>
         <a id="register-tab" href="/register">注册</a>
       </nav>
-      <h2 id="auth-title">登录工作台</h2>
+      <h2 id="auth-title">登录旅行账号</h2>
       <form id="auth-form" method="post" action="/api/auth/login">
         <label for="username">用户名</label>
         <input id="username" name="username" autocomplete="username" required pattern="[A-Za-z0-9_]{3,32}" maxlength="32" autocapitalize="none" spellcheck="false">
         <p class="auth-hint" id="username-hint" hidden>3–32 个英文字母、数字或下划线。</p>
-        <label for="password">密码</label>
+        <div class="auth-password-head"><label for="password" id="password-label">密码</label><button type="button" id="reveal-password" aria-pressed="false">显示密码</button></div>
         <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128">
-        <p class="auth-hint" id="password-hint" hidden>使用至少 12 个字符。</p>
+        <p class="auth-hint" id="password-hint" hidden>使用至少 6 个字符。</p>
+        <div id="confirm-field" hidden><label for="confirm-password">确认新密码</label><input id="confirm-password" type="password" autocomplete="new-password" maxlength="128"></div>
+        <div id="recovery-field" hidden><label for="recovery-code">一次性恢复码</label><input id="recovery-code" autocomplete="off" spellcheck="false" maxlength="128"><small>使用注册时保存或在账号安全中领取的恢复码。</small></div>
+        <div id="captcha-field" hidden><label for="captcha">图片验证码</label><div class="captcha-picture"><img id="captcha-image" alt="五位数字验证码"><button id="refresh-captcha" type="button">换一张</button></div><input id="captcha" inputmode="numeric" maxlength="5" autocomplete="off" pattern="[0-9]{5}"></div>
         <fieldset id="visitor-fields" disabled hidden><legend>旅行偏好</legend><label>年龄<input name="age" type="number" min="1" max="120" required></label><label>性别<select name="gender" required><option>不透露</option><option>女</option><option>男</option></select></label><label>意向目的地<select name="intended_region" required><option value="">请选择市州</option><option>贵阳</option><option>遵义</option><option>六盘水</option><option>安顺</option><option>毕节</option><option>铜仁</option><option>黔东南</option><option>黔南</option><option>黔西南</option></select></label><label>旅行兴趣（选填）<input name="interests" maxlength="120" placeholder="例如美食、徒步"></label><label>步行强度（选填）<select name="walking_preference"><option value="">未设置</option><option>轻松</option><option>适中</option><option>高强度</option></select></label></fieldset>
         <div id="invite-field" hidden>
           <label for="signup-code">邀请码</label>
@@ -32,11 +35,13 @@
         <p class="auth-feedback" id="auth-feedback" role="alert" hidden></p>
         <button id="auth-submit" type="submit" disabled>登录</button>
       </form>
+      <a id="forgot-password" href="/recover">忘记密码？</a>
+      <section id="recovery-result" hidden><h3>保存你的恢复码</h3><p>忘记密码时，用它验证身份。这组码仅在此处显示一次。</p><code id="issued-code"></code><a id="auth-continue" href="/">已保存，进入首页</a></section>
     </section>
     <section class="auth-intro" aria-labelledby="platform-title">
       <div class="auth-brand"><span class="auth-mark" aria-hidden="true">◇</span> 贵州山水</div>
       <div class="travel-pictures" id="travel-pictures">
-        <h1 id="platform-title">贵州山水</h1><p class="album-heading">九州实景画卷</p>
+        <h1 id="platform-title">贵州山水</h1><p class="album-heading">贵州九市州 · 实景图集</p>
         <figure><img id="auth-photo" alt=""><span class="panorama-mist" aria-hidden="true"></span><figcaption><strong id="auth-place">贵州风景</strong> <a id="photo-credit" target="_blank" rel="noopener noreferrer">实景来源</a></figcaption></figure>
         <div class="picture-controls"><button id="photo-prev" type="button">上一景</button><button id="photo-play" type="button">暂停巡游</button><button id="photo-next" type="button">下一景</button><button id="photo-full" type="button">全屏赏景</button></div><div id="photo-places" class="photo-places" aria-label="选择景点"></div>
       </div>

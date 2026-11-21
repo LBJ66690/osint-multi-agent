@@ -171,3 +171,26 @@
   .auth-page { align-items: start; }
   .auth-intro { gap: 12px; }
 }
+
+.auth-page{background:radial-gradient(ellipse at 76% 16%,#d9e6d9,transparent 51%),#f4f5ec}
+.auth-layout{width:min(100%,1060px);border-radius:24px;border:1px solid #cedbce;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}
+.auth-panel h2{font:600 clamp(25px,3vw,37px)/1.25 "STSong","SimSun",serif;color:#133d32}
+.auth-intro{position:relative;isolation:isolate;min-height:520px;background:#214e40;color:white;padding:2rem;overflow:hidden}
+.travel-pictures:not(:fullscreen) figure{position:static;background:none;margin:0 0 .7rem}
+.travel-pictures:not(:fullscreen) figure:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,#102e2888,transparent 44%,#0a2925ed)}
+.travel-pictures:not(:fullscreen) img{position:absolute;inset:0;z-index:-2;height:100%;width:100%;object-fit:cover}
+.travel-pictures:not(:fullscreen) figcaption{position:static;color:white;background:none;padding:0}
+.travel-pictures:not(:fullscreen) figcaption strong{display:block;font:600 clamp(28px,4vw,46px)/1.3 "STSong","SimSun",serif;letter-spacing:.06em}
+.auth-intro .travel-pictures:not(:fullscreen) h1,.auth-intro .travel-pictures:not(:fullscreen) .album-heading{position:absolute;top:6rem;color:#fff}
+.auth-intro .travel-pictures:not(:fullscreen) .album-heading{top:10rem}
+.auth-intro .auth-brand{font-size:14px}.auth-intro .auth-mark{background:#ffffff24;border:1px solid #ffffff60}
+.auth-intro{justify-content:space-between}.travel-pictures:not(:fullscreen) .picture-controls button,.travel-pictures:not(:fullscreen) .photo-places button{background:#12382ebd;border-color:#ffffff66;color:white}.travel-pictures:not(:fullscreen) .photo-places button[aria-pressed=true]{background:white;color:#194932}
+.auth-password-head,.captcha-picture{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.auth-password-head button,.captcha-picture button{width:auto;font-size:.8rem;color:#176245;background:transparent;padding:.35rem}
+#forgot-password,#auth-continue{display:inline-block;color:#146149;margin-top:1rem}
+#issued-code{display:block;overflow-wrap:anywhere;padding:1rem;background:#eaf4eb;border-radius:10px;user-select:all}
+.auth-panel [hidden]{display:none!important}.captcha-picture img{max-width:60%;height:auto}
+#visitor-fields:not([hidden]){grid-template-columns:repeat(2,minmax(0,1fr));margin:.8rem 0}#visitor-fields legend{margin-bottom:.6rem}
+.auth-panel{animation:arrive .45s ease-out}@keyframes arrive{from{transform:translateY(9px);opacity:.95}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.auth-panel{animation:none}}
+@media(max-width:800px){.auth-layout{grid-template-columns:minmax(0,1fr)}.auth-intro{min-height:295px;padding:1.2rem}.auth-intro .travel-pictures:not(:fullscreen) h1,.auth-intro .travel-pictures:not(:fullscreen) .album-heading{display:none}.travel-pictures:not(:fullscreen) figcaption{padding:0}}

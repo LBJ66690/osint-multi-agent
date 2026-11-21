@@ -34,3 +34,25 @@ body:has(#welcome-screen),body:has(#welcome-screen) .app-shell{--bg:#f2f7f2;--in
 #chat-turns p{padding:.55rem;border-radius:.6rem;background:#eef5ef;white-space:pre-wrap}
 #chat-turns p:nth-child(2n){background:#f6f1e8}.journal-mode .journey-card{align-self:start}
 .journey-card select{max-width:100%}.journey-card .actions{gap:.5rem}
+
+.departure-picker{position:relative;min-width:0}.departure-picker label{display:block;margin-bottom:.45rem}
+#departure-options{position:absolute;z-index:12;top:100%;width:100%;max-height:15rem;overflow:auto;background:white;border:1px solid #b9d1c3;border-radius:.6rem;box-shadow:0 8px 24px #164b3620}
+.departure-choice,#departure-options>small{display:grid;gap:.2rem;padding:.55rem .75rem;cursor:pointer}
+.departure-choice small{color:#53695c}.departure-choice:hover,.departure-choice[aria-selected=true]{background:#e6f2e9}
+
+.account-hero{background:linear-gradient(100deg,#104939 20%,#21624c 55%,#356f5599),url('/static/travel/assets/fanjingshan.webp') right 34%/cover;color:#fff;border-radius:16px;padding:1.5rem;display:flex;align-items:center;gap:1rem}
+.account-hero h2{color:white;margin:.15rem 0;font-family:"STSong","SimSun",serif;font-size:1.8rem}.account-kicker{font-size:.78rem;letter-spacing:.12em;color:#d3ebe0}
+.account-return{margin-left:auto;color:white}.account-hero #account-name{font-size:.9rem;color:#fff}
+#member-avatar{width:62px;height:62px;display:grid;place-items:center;background:#f7efd9;color:#235340;border:3px solid #fff9;border-radius:50%;overflow:hidden;font:700 1.65rem Georgia,serif;flex-shrink:0}#member-avatar img{width:100%;height:100%;object-fit:cover}
+#credit-cards:not([hidden]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;margin:1rem 0}
+#credit-cards div{display:grid;gap:.25rem;padding:.8rem 1rem;background:#eff5ef;border-radius:12px}#credit-cards strong{font-size:1.4rem;color:#194e3f}
+#credits:has(+ #credit-cards:not([hidden])){position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+.account-tools{display:grid;grid-template-columns:minmax(150px,.75fr) minmax(0,1.4fr);gap:.9rem}.account-tools>section{border:1px solid #d6e3d8;border-radius:14px;padding:1rem}.account-tools h3{margin:0 0 .6rem}.account-tools p{font-size:.86rem}
+.avatar-upload{position:relative;cursor:pointer;overflow:hidden}.avatar-upload input{position:absolute;inset:0;opacity:0;cursor:pointer}.avatar-upload:focus-within{outline:2px solid #176944}
+#security-center .danger-action{color:#a0483d}.account-tools .actions{align-items:center}
+#security-form fieldset{border:0;padding:0;margin:0}#new-recovery{display:block;user-select:all;overflow-wrap:anywhere;background:#eef6ed;padding:1rem;border-radius:.7rem}
+#history-list{list-style:none;padding:0}#history-list li{border-bottom:1px solid #e2ebe5;padding:.65rem 0}
+#history-pager{justify-content:flex-end;align-items:center}#history-pager span{font-size:.85rem}
+@media(max-width:680px){.account-tools{grid-template-columns:1fr}.account-hero{flex-wrap:wrap}.account-hero .account-return{font-size:.8rem}#credit-cards div{padding:.65rem}}
+
+.voice-samples summary{cursor:pointer;color:#195941;font-size:.85rem}.voice-samples a{display:block;margin:.4rem 0}

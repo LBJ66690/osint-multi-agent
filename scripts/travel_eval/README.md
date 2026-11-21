@@ -28,7 +28,7 @@ $env:TRAVEL_STATIC_DIR = (Resolve-Path '..\osint-multi-agent\static').Path
 | TRAVEL_OCR_BINARY | 可选本地 Tesseract，识别语言 chi_sim+eng；缺少引擎时允许手填、确认票面信息 |
 | OSINT_STORAGE、OSINT_DB_* | 沿用原项目 MySQL 登录模式；仅专用测试实例设置 OSINT_TEST_MYSQL=1 |
 
-迁移空库依次执行 deploy/mysql/001_initial.sql 和 002_travel.sql。已有 v1 库仅执行 002。Compose 新数据卷自动按顺序执行两份 SQL，已有数据卷需由迁移账号执行增量 SQL。请先在旧库副本复演。服务的数据库版本检查要求 v2。
+迁移空库依次执行 deploy/mysql/001_initial.sql 、002_travel.sql 和 003_account_security.sql。已有数据库按版本升至 v3。Compose 新数据卷自动按顺序执行，已有数据卷需由迁移账号执行增量 SQL。
 
 ## 复测命令
 

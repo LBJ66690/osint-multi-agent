@@ -9,9 +9,10 @@ export async function loadCatalog() {
   return new Map(rows.map(row => [row.poi_id, row]));
 }
 
-export function drawPois(catalog, plan) {
+export function drawPois(catalog, plan, selectWeather) {
   const mobile = matchMedia('(max-width: 760px)');
-  const openRegion = setupStreets(catalog, select);
+  const openStreet = setupStreets(catalog, select);
+  const openRegion = id => {selectWeather(catalog.get(id).region);return openStreet(id);};
   const syncAtlas = setupAtlas(catalog, select, openRegion);
   function card(poi) {
     const file = poi.images[0] || catalog.get(poi.parent_id)?.images[0];
@@ -65,9 +66,10 @@ export function drawPois(catalog, plan) {
     return [image, copy];
   }
 
-  function select(id, {openOnMobile = true, showDetail = false} = {}) {
+  function select(id, {openOnMobile = true, showDetail = false, initial = false} = {}) {
     const poi = catalog.get(id);
     if (!poi) return;
+    if(!initial)selectWeather(poi.region);
     syncAtlas(poi.parent_id || id);
     const details = $('atlas-detail');
     details.hidden = false;
@@ -94,7 +96,7 @@ export function drawPois(catalog, plan) {
     }
   }
 
-  select('fanjingshan', {openOnMobile: false});
+  select('fanjingshan', {openOnMobile: false,initial:true});
   return select;
 }
 

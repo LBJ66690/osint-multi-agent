@@ -1,3 +1,4 @@
+import {setupDeparture} from './departure-picker.js';
 import {liveEvents, liveRequest} from './api.js';
 import {setupAccount} from './account.js';
 import {travelConfig} from './config.js';
@@ -145,29 +146,7 @@ async function init() {
   const input = $('task');
   const form = $('draft-form');
 
-  const departure=$('departure');
-  let searchGeneration=0;
-  let localDirectory;
-  async function searchDepartures(){
-    const generation=++searchGeneration;
-    const mode=$('travel-mode').value, q=$('origin').value.trim();
-    departure.replaceChildren(new Option('请选择目录中的地点',''));
-    try {
-      let items;
-      if(demo){
-        localDirectory ||= fetch('/static/travel/data/departures.json').then(r=>r.json());
-        const kind={high_speed:'station',rail:'station',air:'airport',car:'city',coach:'city',tour:'city'}[mode];
-        items=(await localDirectory).items.filter(item=>item.kind===kind && [item.name,item.city,item.province,item.id].some(v=>v.toLowerCase().includes(q.toLowerCase()))).slice(0,80);
-      }else{
-        items=(await request('/api/travel/departures?'+new URLSearchParams({mode,q}))).items;
-      }
-      if(generation!==searchGeneration)return;
-      for(const row of items)departure.add(new Option([row.name,row.city,row.province,row.kind==='airport'?row.id.slice(4):''].filter(Boolean).join(' · '),row.id));
-    }catch {if(generation===searchGeneration)show('draft-error','出发地目录暂时不可用，请重新搜索。');}
-  }
-  $('origin').addEventListener('input',searchDepartures);
-  $('travel-mode').addEventListener('change',()=>{$('origin').value='';searchDepartures();});
-  void searchDepartures();
+  const picker=setupDeparture(request,demo,invalidate);
 
   function plan(poi, example = false) {
     selectedForDraft = poi.poi_id;
@@ -181,9 +160,7 @@ async function init() {
     if(example || !$('budget').value)setInput('budget',example?2500:2000);
     if (example) {
       $('travel-mode').value='high_speed';
-      setInput('origin', '贵阳北站');
-      departure.replaceChildren(new Option('贵阳北站 · 贵阳','rail:KQW',true,true));
-      ++searchGeneration;
+      picker.choose({id:'rail:KQW',name:'贵阳北站'});
       setInput('travelers', 2);
       setInput('budget-scope', 'group');
       $('round-trip').checked = true;
@@ -207,7 +184,8 @@ async function init() {
     if (previewing || submitting) return;
     const task = input.value.trim();
     if (!task) return show('draft-error', '请描述旅行需求，或从地图填入草稿。');
-    const origin = departure.selectedOptions[0]?.text.split(' · ')[0];
+    if(!picker.confirmed())return;
+    const origin = $('origin').value;
     const travelers = Number($('travelers').value);
     const startDate = $('start-date').value;
     const endDate = $('end-date').value;
@@ -218,7 +196,7 @@ async function init() {
     if (pending) return show('draft-error', '请先确认识别的票面信息，或移除该截图。');
     const overrides = {timezone: 'Asia/Shanghai', include_round_trip: $('round-trip').checked};
     overrides.travel_mode=$('travel-mode').value;
-    overrides.departure_id=departure.value;
+    overrides.departure_id=$('departure').value;
     if (origin) overrides.origin = origin;
     if (travelers) overrides.travelers = travelers;
     if (startDate) overrides.start_date = startDate;
@@ -285,11 +263,23 @@ async function init() {
 
   void account.load();
   void runs.loadHistory();
-  void request('/api/travel/home-weather').then(seeWeather, () => seeWeather(null));
+  let weatherRegion;
+  let weatherVersion=0;
+  async function selectWeather(region){
+    if(region===weatherRegion)return;
+    weatherRegion=region;
+    const version=++weatherVersion;
+    seeWeather(null,region,true);
+    try{
+      const result=await request('/api/travel/home-weather'+(region==='贵阳'?'':'?region='+encodeURIComponent(region)));
+      if(version===weatherVersion)seeWeather(result,region);
+    }catch{if(version===weatherVersion)seeWeather(null,region);}
+  }
+  void selectWeather('贵阳');
   try {
     const rows = await loadCatalog();
     for (const [id, poi] of rows) catalog.set(id, poi);
-    selectPoi = drawPois(catalog, plan);
+    selectPoi = drawPois(catalog, plan, selectWeather);
     suggest();
     if (!demo) onlineMap(catalog, selectPoi, travelConfig);
   } catch (error) {

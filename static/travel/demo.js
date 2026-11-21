@@ -80,6 +80,12 @@ export function createDemo() {
   async function request(path, {method = 'GET', body, key} = {}) {
     if (path === '/api/auth/me') return {username: '样例游客'};
     if (path === '/api/health') return {auth_enabled: true};
+    if (path.startsWith('/api/travel/history?')) {
+      const all=[...runs.values()].reverse(),pages=Math.max(1,Math.ceil(all.length/10));
+      const page=Math.min(pages,Number(new URL(path,location.origin).searchParams.get('page'))||1);
+      return {runs:all.slice((page-1)*10,page*10),page,pages,total:all.length};
+    }
+    if(path.startsWith('/api/travel/home-weather?')) return {location:new URL(path,location.origin).searchParams.get('region'),kind:'unknown',stale:true};
     if (path === '/api/travel/home-weather') return {location: '贵阳', kind: 'observation', condition: '小雨', as_of: `${frozenDate}T09:55:00+08:00`, stale: false, data_mode: 'fixture'};
     if (path === '/api/travel/credits') return {...credits};
     if (path === '/api/travel/profile') {

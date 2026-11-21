@@ -41,6 +41,7 @@ def main():
                 conn.commit()
             migrate(conn,"deploy/mysql/002_travel.sql")
             migrate(conn,"deploy/mysql/002_travel.sql")
+            migrate(conn,"deploy/mysql/003_account_security.sql")
         store=MySQLStore(dict(settings,database=name))
         store.check_schema()
         assert store.healthy()

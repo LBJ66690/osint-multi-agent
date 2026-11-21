@@ -12,8 +12,9 @@ services:
       - osint_mysql_data:/var/lib/mysql
       - ./deploy/mysql/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
       - ./deploy/mysql/002_travel.sql:/docker-entrypoint-initdb.d/002_travel.sql:ro
+      - ./deploy/mysql/003_account_security.sql:/docker-entrypoint-initdb.d/003_account_security.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u osint osint -e 'SELECT IF(MAX(version)=2,1,0) FROM osint_schema_versions' -N | grep -qx 1"]
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u osint osint -e 'SELECT IF(MAX(version)=3,1,0) FROM osint_schema_versions' -N | grep -qx 1"]
       interval: 5s
       timeout: 4s
       retries: 20

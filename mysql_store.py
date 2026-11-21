@@ -57,13 +57,13 @@ class MySQLStore:
     def check_schema(self):
         with self.cursor() as cursor:
             cursor.execute("SELECT MAX(version) AS version FROM osint_schema_versions")
-            if cursor.fetchone()["version"] != 2:
+            if cursor.fetchone()["version"] != 3:
                 raise RuntimeError("MySQL 数据库结构不匹配，请先执行项目数据库初始化脚本。")
 
     def healthy(self):
         with self.cursor() as cursor:
             cursor.execute("SELECT MAX(version) AS version FROM osint_schema_versions")
-            return cursor.fetchone()["version"] == 2
+            return cursor.fetchone()["version"] == 3
 
     def recover_interrupted_runs(self):
         with self.cursor() as cursor:
@@ -77,7 +77,7 @@ class MySQLStore:
                 WHERE r.status NOT IN ('done', 'error', 'cancelled')
             """)
 
-    def create_user(self, username, password_hash, digest, expires_at, previous_digest=None, profile=None):
+    def create_user(self, username, password_hash, digest, expires_at, previous_digest=None, profile=None, recovery_digest=None):
         with self.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO osint_users (username, password_hash) VALUES (%s, %s)",
@@ -85,6 +85,8 @@ class MySQLStore:
             )
             user_id = cursor.lastrowid
             cursor.execute("INSERT INTO travel_accounts(owner_id,profile) VALUES (%s,%s)", (user_id,json.dumps(profile or {},ensure_ascii=False)))
+            if recovery_digest:
+                cursor.execute("INSERT INTO travel_security(owner_id,recovery_digest) VALUES(%s,%s)", (user_id,recovery_digest))
             if previous_digest:
                 cursor.execute("DELETE FROM osint_sessions WHERE token_digest = %s", (previous_digest,))
             cursor.execute(

@@ -174,16 +174,16 @@ export function setupGuide(allowServerVoice) {
   document.addEventListener('travel:preview',()=>action('preview'));
   action('wave');
 
-  return function showWeather(weather) {
+  return function showWeather(weather,region='贵阳',loading=false) {
     const city = typeof weather?.location === 'string' ? weather.location : weather?.location?.name;
     const timestamp = dateTime(weather?.as_of);
-    const isGuiyang = /^(贵州省)?贵阳市?$/.test(city || '');
+
     const condition = weather?.condition || (weather?.weather_code!=null ? weatherName(weather.weather_code) : '');
     const isRain = /雨|rain/i.test(condition) || weather?.precipitation_probability_max>=50;
-    const available = isGuiyang && weather.stale === false && timestamp && ['observation', 'forecast'].includes(weather.kind);
+    const available = city===region && weather.stale === false && timestamp && ['observation', 'forecast'].includes(weather.kind);
     if (!available) {
-      $('weather').textContent = '贵阳 · 天气待查';
-      $('weather-time').textContent = '暂未取得预报';
+      $('weather').textContent = region+(loading?' · 正在查询':' · 天气待查');
+      $('weather-time').textContent = loading?'正在读取模型预报':'暂未取得预报';
       $('weather-icon').textContent = '☁';
       backgroundAction = 'idle';
     } else {

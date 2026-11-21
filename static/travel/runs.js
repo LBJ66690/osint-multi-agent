@@ -163,15 +163,16 @@ export function setupRuns(request, events, report, refreshBalance) {
     $('cancel').hidden = true;
     await readDetail(nonce);
   }
-  async function loadHistory() {
+  let historyPage=1;
+  async function loadHistory(page=historyPage) {
     const attempt = ++historyRequest;
     const list = $('history-list');
     try {
-      const data = await request('/api/runs');
+      const data = await request('/api/travel/history?page='+page);
       if (attempt !== historyRequest) return;
       list.replaceChildren();
       for (const row of data.runs || []) {
-        if ((row.domain ?? row.summary?.domain) !== domain || !(row.id || row.run_id)) continue;
+        if (!(row.id || row.run_id)) continue;
         const item = make('li');
         const label = `${(row.task || '旅行任务').replace(/^帮我拟一个|^帮我拟一份/,'').replace(/的旅游计划。?$/,'')} · ${labels[row.status] || row.status}`;
         const id = row.id || row.run_id;
@@ -182,15 +183,14 @@ export function setupRuns(request, events, report, refreshBalance) {
         }, 'text-button'));
         list.append(item);
       }
-      if ((data.runs || []).some(row => !Object.hasOwn(row, 'domain') && !row.summary?.domain)) {
-        const link = make('a', '打开工作台历史记录');
-        link.href = '/?workspace=research';
-        const item = make('li');
-        item.append(link);
-        list.append(item);
-      }
+      historyPage=data.page;
+      $('history-pager').hidden=data.pages<=1;
+      $('history-page').textContent='第 '+data.page+' / '+data.pages+' 页 · 共 '+data.total+' 条';
+      $('history-prev').disabled=data.page===1;
+      $('history-next').disabled=data.page===data.pages;
       if (!list.childElementCount) list.append(make('li', '暂无旅行记录'));
     } catch (error) {
+      if (attempt === historyRequest) $('history-pager').hidden=true;
       if (attempt === historyRequest) list.replaceChildren(make('li', error.status === 401 ? '登录后查看旅行记录' : '暂时无法读取旅行记录'));
     }
   }
@@ -246,7 +246,9 @@ export function setupRuns(request, events, report, refreshBalance) {
     closeStream();
     void readDetail(++generation);
   });
-  $('load-history').addEventListener('click', loadHistory);
+  $('load-history').addEventListener('click', ()=>loadHistory());
+  $('history-prev').onclick=()=>loadHistory(historyPage-1);
+  $('history-next').onclick=()=>loadHistory(historyPage+1);
   window.addEventListener('pagehide', closeStream);
   window.addEventListener('pageshow', event => { if (event.persisted && run && !final.has(run.status)) void readDetail(++generation); });
   function resetCompleted() {

@@ -14,7 +14,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from argon2.low_level import Type
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, SecretStr, Field
 from travel_profile import VisitorProfile
 
 SESSION_HOURS = 12
@@ -50,6 +50,7 @@ class Credentials(BaseModel):
     username: str
     password: SecretStr
     signup_code: SecretStr | None = None
+    captcha: str = Field(default="",max_length=8)
 
 
 class Registration(Credentials):
@@ -89,6 +90,11 @@ def set_session(request, response, token):
         settings.cookie, token, max_age=MAX_AGE, path="/", secure=settings.secure,
         httponly=True, samesite="lax",
     )
+
+
+def validate_password(password):
+    if not 6 <= len(password) <= 128 or password.isspace():
+        raise HTTPException(422, "密码需要 6–128 个字符。")
 
 
 def validate_username(value):
@@ -145,23 +151,24 @@ async def register(form: Registration, request: Request, response: Response):
     await use_limit(store, "register", auth_ip(request), 900, 8, "注册请求过多，请稍后再试。")
     username = validate_username(form.username)
     password = form.password.get_secret_value()
-    if not 12 <= len(password) <= 128 or password.isspace():
-        raise HTTPException(422, "密码需要 12–128 个字符。")
+    validate_password(password)
     if settings.signup_code:
         submitted = form.signup_code.get_secret_value() if form.signup_code else ""
         if not secrets.compare_digest(submitted.encode("utf-8"), settings.signup_code.encode("utf-8")):
             raise HTTPException(403, "邀请码无效。")
     token, digest, expiry = new_session()
     password_hash = await asyncio.to_thread(PASSWORDS.hash, password)
+    recovery = secrets.token_urlsafe(24)
     try:
         user = await asyncio.to_thread(store.create_user, username, password_hash, digest, expiry, session_digest(request),
-                                       form.profile.model_dump(exclude_none=True) if form.profile else None)
+                                       form.profile.model_dump(exclude_none=True) if form.profile else None,
+                                       hashlib.sha256(recovery.encode()).digest())
     except pymysql.IntegrityError as exc:
         if exc.args[0] != 1062:
             raise
         raise HTTPException(409, "用户名已被使用，请换一个。") from None
     set_session(request, response, token)
-    return {"username": user["username"]}
+    return {"username": user["username"],"recovery_code":recovery}
 
 
 @router.post("/login")
@@ -173,16 +180,13 @@ async def login(form: Credentials, request: Request, response: Response):
     username = validate_username(form.username)
     await use_limit(store, "login-user", username, 300, 10, "登录尝试过多，请稍后再试。")
     password = form.password.get_secret_value()
-    if not 1 <= len(password) <= 128:
-        raise HTTPException(401, "用户名或密码不正确。")
-    user = await asyncio.to_thread(store.get_credentials, username)
-    valid = await asyncio.to_thread(verify_password, user["password_hash"] if user else DUMMY_HASH, password)
-    if not valid or user is None:
-        raise HTTPException(401, "用户名或密码不正确。")
+    from account_security import login_attempt
     token, digest, expiry = new_session()
-    await asyncio.to_thread(store.issue_session, user["id"], digest, expiry, session_digest(request))
+    result = await asyncio.to_thread(login_attempt, store, username, password, form.captcha, digest, expiry, session_digest(request))
+    if result:
+        raise HTTPException(401, result)
     set_session(request, response, token)
-    return {"username": user["username"]}
+    return {"username": username}
 
 
 @router.get("/me")

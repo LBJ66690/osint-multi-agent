@@ -77,10 +77,12 @@ async def lifespan(app):
 
 
 app = FastAPI(title="开源情报多智能体平台", version="2.5", lifespan=lifespan)
+import account_security
+app.include_router(account_security.router)
 app.include_router(web_auth.router)
 app.include_router(travel_api.router)
 
-PUBLIC_API = {"/api/health", "/api/auth/options", "/api/auth/register", "/api/auth/travel-register", "/api/auth/login", "/api/auth/logout"}
+PUBLIC_API = {"/api/health", "/api/auth/options", "/api/auth/register", "/api/auth/travel-register", "/api/auth/login", "/api/auth/logout", "/api/auth/reset-password", "/api/auth/login-challenge"}
 
 
 @app.exception_handler(RequestValidationError)
@@ -583,10 +585,11 @@ async def index(request: Request):
     return page.read_text(encoding="utf-8")
 
 
+@app.get("/recover", response_class=HTMLResponse)
 @app.get("/login", response_class=HTMLResponse)
 @app.get("/register", response_class=HTMLResponse)
 async def login_page(request: Request):
-    if not web_auth.store_for(request) or request.state.user:
+    if not web_auth.store_for(request) or (request.state.user and request.url.path != "/recover"):
         return RedirectResponse("/", status_code=303)
     return (STATIC / "auth.html").read_text(encoding="utf-8")
 

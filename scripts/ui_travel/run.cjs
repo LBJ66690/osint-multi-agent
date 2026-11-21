@@ -42,6 +42,12 @@ function mockRuntime() {
       case 'GET /api/travel/profile': return sendJSON(res, {origin: '贵阳', travelers: 1, budget_scope: 'group'});
       case 'GET /api/travel/credits': return sendJSON(res, {available: 1, reserved: 0, used: 0});
       case 'GET /api/travel/home-weather': return sendJSON(res, weather);
+      case 'GET /api/auth/settings': return sendJSON(res, {created_at:'2026-11-21',can_recover:false});
+      case 'GET /api/travel/history': {
+        const page=Number(url.searchParams.get('page') || 1);
+        const all=Array.from({length:23},(_,i)=>({id:'record-'+(i+1),task:'行程 '+(i+1),status:'done'}));
+        return sendJSON(res,{page,pages:3,total:23,runs:all.slice((page-1)*10,page*10)});
+      }
       case 'GET /api/runs': return sendJSON(res, {runs: []});
       case 'POST /api/travel/attachments': {
         const multipart = await requestBody(req);
@@ -173,7 +179,7 @@ async function demoFlow(browser, url, errors) {
   await page.getByRole('button', {name: '跳过'}).click();
   await page.locator('#voice').click();
   await waitText(page, '#voice', '样例模式缺少浏览器中文语音');
-  await page.waitForFunction(() => document.querySelector('#guide').dataset.action === 'umbrella');
+  await waitText(page,'#weather','铜仁 · 天气待查');
   await page.locator('#motion').click();
   assert.equal(await page.locator('#motion').getAttribute('aria-pressed'), 'true');
   await startSample(page);
@@ -281,6 +287,19 @@ async function liveFixtureFlow(browser, url, runtime, errors) {
   await page.route('https://webapi.amap.com/**', route => route.abort());
   await page.goto(url);
   await waitText(page, '#weather-time', '建议带伞');
+  await waitText(page,'#history-page','第 1 / 3 页');
+  const locationBeforePaging=page.url();
+  assert.equal(await page.locator('#history-list li').count(),10);
+  await page.locator('#history-next').click();
+  await waitText(page,'#history-page','第 2 / 3 页');
+  assert.match(await page.locator('#history-list a').first().getAttribute('href'),/record-11$/);
+  await page.locator('#history-next').click();
+  await waitText(page,'#history-page','第 3 / 3 页');
+  assert.equal(await page.locator('#history-list li').count(),3);
+  assert.equal(await page.locator('#history-next').isDisabled(),true);
+  await page.locator('#history-prev').click();
+  await waitText(page,'#history-page','第 2 / 3 页');
+  assert.equal(page.url(),locationBeforePaging);
   await page.locator('#switch-map').click();
   await waitText(page, '#map-mode', '底图不可用');
   assert.notEqual(await page.locator('#guide').getAttribute('data-action'), 'umbrella');
