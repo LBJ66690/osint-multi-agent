@@ -1,7 +1,7 @@
 // Actual UI, controlled HTTP responses. No external model calls or credentials.
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
-const modelConfig=JSON.parse(fs.readFileSync(path.join(root,'outputs/model_profile_options.json'),'utf8'));
+const modelConfig={models:[{id:'qwen3.8-flash',label:'回放模型'}],role_defaults:{planner:'qwen3.8-flash'},role_profiles:{quick:{planner:'qwen3.8-flash'}}};
 const reports=[{type:'报告甲',markdown:'# 报告甲\n甲报告的完整正文。'},{type:'报告乙',markdown:'# 报告乙\n另一份独立报告的正文。'}];
 const threads=new Map(),posts=[],errors=[];let failNext=false,hold=false,release=null,blocked=false;
 const version=t=>crypto.createHash('sha256').update(t).digest('hex');
@@ -13,7 +13,7 @@ function data(run,type){const report=reports.find(r=>r.type===type);if(!report)r
   const u=new URL(route.request().url()),method=route.request().method(),json=(value,status=200)=>route.fulfill({status,json:value});
   if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/workspace.html'),'utf8')});
     if (u.pathname.endsWith('.svg')) return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(root,u.pathname),'utf8')});
-  if(u.pathname.startsWith('/static/'))return route.fulfill({contentType:u.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(u.pathname)),'utf8')});
+  if(u.pathname.startsWith('/static/'))return route.fulfill({contentType:u.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,u.pathname),'utf8')});
   if(u.pathname==='/api/health')return json({has_key:true});
   if(u.pathname==='/api/models')return json(modelConfig);
   if(u.pathname==='/api/model-recommendation')return json({mode:'quick',label:'简明解答',role_models:modelConfig.role_profiles.quick,reasons:{}});
@@ -36,19 +36,22 @@ function data(run,type){const report=reports.find(r=>r.type===type);if(!report)r
   return route.fulfill({status:404,body:''});
  });
  try{
-  await page.goto('http://chat.test/');await page.locator('[data-run="runA"]').click();await page.locator('#report-ready').waitFor({state:'visible'});
-  assert.equal(await page.locator('#report-chat-modal:visible').count(),0);
-  await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
+  async function readReport(run,type='报告甲'){
+    await page.locator('[data-run="'+run+'"]').click();
+    await page.locator('#final-reader[open]').waitFor();
+    await page.locator('#reader-types').getByRole('button',{name:type}).click();
+    await page.locator('#reader-close').click();
+    await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
+  }
+  await page.goto('http://chat.test/');await readReport('runA');
   assert.match(await page.locator('#report-chat-title').textContent(),/报告甲/);
-  assert.match(await page.locator('#report-chat-note').textContent(),/消耗.*额度/);
   await page.locator('#report-chat-send').click();assert.match(await page.locator('#report-chat-error').textContent(),/请输入/);assert.equal(posts.length,0);
-  await page.locator('#report-chat-model').selectOption('kimi-k3.1-pro');await page.locator('#report-chat-question').fill('报告最重要的依据是什么？');
+  await page.locator('#report-chat-question').fill('报告最重要的依据是什么？');
   await page.evaluate(()=>{document.querySelector('#report-chat-form').requestSubmit();document.querySelector('#report-chat-form').requestSubmit();});
   await page.waitForFunction(()=>document.querySelectorAll('.chat-assistant:not(.chat-waiting)').length===1);
-  assert.equal(posts.length,1);assert.equal(posts[0].model_id,'kimi-k3.1-pro');assert.equal(posts[0].report_type,'报告甲');assert.equal('report' in posts[0],false);
-  assert.equal(await page.locator('#report-chat-messages img').count(),0);assert.match(await page.locator('#report-chat-messages').textContent(),/kimi-k3\.1-pro/);
-  await page.locator('#report-chat-modal').press('Escape');assert.equal(await page.locator('#btn-ask-report').evaluate(e=>e===document.activeElement),true);
-  await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
+  assert.equal(posts.length,1);assert.equal(posts[0].model_id,'qwen3.8-flash');assert.equal(posts[0].report_type,'报告甲');assert.equal('report' in posts[0],false);
+  assert.equal(await page.locator('#report-chat-messages img').count(),0);assert.match(await page.locator('#report-chat-messages').textContent(),/qwen3\.8-flash/);
+  await page.locator('#reopen-report').click();await page.keyboard.press('Escape');await page.locator('#report-chat-question').waitFor();
   assert.equal(await page.locator('.chat-user').count(),1);
   failNext=true;await page.locator('#report-chat-question').fill('失败后请保留这个问题');await page.locator('#report-chat-send').click();
   await page.waitForFunction(()=>document.querySelector('#report-chat-error').textContent.includes('暂时不可用'));
@@ -56,27 +59,26 @@ function data(run,type){const report=reports.find(r=>r.type===type);if(!report)r
   await page.locator('#report-chat-close').click();await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
   assert.equal(await page.locator('#report-chat-question').inputValue(),'失败后请保留这个问题');await page.locator('#report-chat-send').click();
   await page.waitForFunction(()=>document.querySelectorAll('.chat-assistant:not(.chat-waiting)').length===2);assert.equal(posts.at(-1).request_id,failedId);
-  await page.locator('#report-chat-close').click();await page.locator('[data-report="报告乙"]').click();await page.locator('[data-chat-report]').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
+  await readReport('runA','报告乙');await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
   assert.match(await page.locator('#report-chat-title').textContent(),/报告乙/);assert.equal(await page.locator('.chat-user').count(),0);
   hold=true;await page.locator('#report-chat-question').fill('这条延迟回答只属于报告乙');await page.locator('#report-chat-send').click();
   await page.locator('.chat-waiting').waitFor({state:'visible'});assert.equal(await page.locator('#report-chat-model').isDisabled(),true);
   await page.locator('#report-chat-close').click();await page.locator('#btn-ask-report').click();await page.locator('.chat-waiting').waitFor({state:'visible'});
-  await page.locator('#report-chat-close').click();await page.locator('[data-run="runB"]').click();await page.locator('#btn-ask-report').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
+  await readReport('runB');await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
   hold=false;assert.ok(release);release();await page.waitForTimeout(150);
   assert.doesNotMatch(await page.locator('#report-chat-messages').textContent(),/延迟回答/);assert.equal(await page.locator('.chat-user').count(),0);
   for(const width of [1500,390,320]){
    await page.setViewportSize({width,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);
-   assert.equal(await page.locator('.report-chat-dialog').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);
-   assert.equal(await page.locator('.report-chat-dialog').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.height<=innerHeight;}),true);
+   assert.equal(await page.locator('.report-conversation').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);
+   assert.equal(await page.locator('.report-conversation').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1;}),true);
   }
-  await page.setViewportSize({width:320,height:568});assert.equal(await page.locator('.report-chat-dialog').evaluate(e=>e.getBoundingClientRect().height<=innerHeight),true);
-  await page.setViewportSize({width:1500,height:1000});await page.locator('#report-chat-close').click();await page.locator('[data-run="runA"]').click();await page.locator('[data-report="报告乙"]').click();await page.locator('[data-chat-report]').click();await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
+  await page.setViewportSize({width:1500,height:1000});await readReport('runA','报告乙');await page.waitForFunction(()=>!document.querySelector('#report-chat-question').disabled);
   assert.match(await page.locator('#report-chat-messages').textContent(),/延迟回答/);
-  await page.screenshot({path:path.join(root,'outputs/report-chat-desktop.png'),fullPage:true});
+  fs.mkdirSync(path.join(root,'outputs'),{recursive:true});await page.screenshot({path:path.join(root,'outputs/report-chat-desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:800});await page.screenshot({path:path.join(root,'outputs/report-chat-mobile.png'),fullPage:true});
   await page.locator('#report-chat-close').click();blocked=true;await page.locator('#btn-ask-report').click();
   await page.waitForFunction(()=>document.querySelector('#report-chat-error').textContent.includes('40000'));assert.equal(await page.locator('#report-chat-send').isDisabled(),true);
   assert.deepEqual(errors,[]);
-  console.log('REPORT CHAT UI PASS: entry, model choice, double-click guard, history, retry ID, XSS escaping, report/run isolation, late replies, close/reopen, keyboard and narrow layouts');
+  console.log('REPORT CHAT UI PASS: entry, default model, double-click guard, history, retry ID, XSS escaping, report/run isolation, late replies, close/reopen, keyboard and narrow layouts');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

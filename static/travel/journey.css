@@ -56,3 +56,22 @@ body:has(#welcome-screen),body:has(#welcome-screen) .app-shell{--bg:#f2f7f2;--in
 @media(max-width:680px){.account-tools{grid-template-columns:1fr}.account-hero{flex-wrap:wrap}.account-hero .account-return{font-size:.8rem}#credit-cards div{padding:.65rem}}
 
 .voice-samples summary{cursor:pointer;color:#195941;font-size:.85rem}.voice-samples a{display:block;margin:.4rem 0}
+
+#final-reader{box-sizing:border-box;width:min(1040px,95vw);max-height:90dvh;padding:0 clamp(14px,3vw,34px) 24px;border:1px solid #b9cfc2;border-radius:20px;background:#f6faf6;color:#193e32;overscroll-behavior:contain}
+#final-reader::backdrop{background:#102c26ad}
+#final-reader>header,.report-conversation>header{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+#final-reader>header{position:sticky;top:0;z-index:2;background:#f6faf6;padding:1rem 0;border-bottom:1px solid #d2ded4;margin-bottom:1rem}
+#final-reader h2,.report-conversation h2{margin:0;font-size:1.25rem}
+#reader-types:not(:empty){display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+#reader-types [aria-pressed=true]{font-weight:bold;text-decoration:underline}
+#final-reader .report-md{grid-column:1/-1}
+.report-conversation-mode #dashboard-screen,.report-conversation-mode #welcome-screen,.report-conversation-mode .composer>:not(#btn-new-research){display:none!important}
+.report-conversation{margin:1rem auto;width:min(840px,100%);border:1px solid #ccdbcf;border-radius:18px;overflow:hidden;background:#fff}
+.report-conversation>header{padding:1rem 1.4rem}.report-conversation .report-chat-messages{max-height:52dvh;background:#eef5f0}
+#draft-instruction{color:#305f4a}.welcome-content:has(#draft-instruction:not([hidden])) #task-input{min-height:10em}
+
+@media(max-width:600px){.report-conversation>header{align-items:start;flex-wrap:wrap;gap:.5rem}.report-conversation header .workspace-actions{display:flex;gap:.4rem}}
+
+#research-chat-model[hidden]{display:none}
+
+.travel-draft-mode :is(.welcome-copy>p,.welcome-suggestions,.welcome-flow,.welcome-links){display:none}

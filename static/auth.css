@@ -194,3 +194,17 @@
 .auth-panel{animation:arrive .45s ease-out}@keyframes arrive{from{transform:translateY(9px);opacity:.95}to{transform:none;opacity:1}}
 @media(prefers-reduced-motion:reduce){.auth-panel{animation:none}}
 @media(max-width:800px){.auth-layout{grid-template-columns:minmax(0,1fr)}.auth-intro{min-height:295px;padding:1.2rem}.auth-intro .travel-pictures:not(:fullscreen) h1,.auth-intro .travel-pictures:not(:fullscreen) .album-heading{display:none}.travel-pictures:not(:fullscreen) figcaption{padding:0}}
+
+@media(min-width:801px){
+  .auth-layout{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);grid-template-areas:"gallery account"}
+  .auth-intro{grid-area:gallery}.auth-panel{grid-area:account}
+}
+#photo-credit{font-size:.84rem;line-height:1.7}
+
+.travel-pictures img.moving{animation:scroll-arrive 3s ease-out both}
+@keyframes scroll-arrive{0%{opacity:.76;transform:scale(1.02)}18%{opacity:1}100%{transform:scale(1.06)}}
+.touring[data-scene="falls"] .panorama-mist{inset:35% 20% 8%;background:radial-gradient(ellipse at 52% 80%,#fff9,transparent 44%);animation:water-spray 2.6s ease-in-out infinite alternate}
+@keyframes water-spray{from{opacity:.16;transform:scale(.96)}to{opacity:.55;transform:translateY(-2%) scale(1.06)}}
+.touring[data-scene="river"] .panorama-mist{inset:56% 0 14%;background:repeating-linear-gradient(178deg,transparent 0 12px,#daf7ef33 13px,transparent 15px);mask-image:radial-gradient(ellipse,#000,transparent 68%);animation:river-light 3s ease-in-out infinite alternate}
+@keyframes river-light{from{opacity:.12;transform:scaleX(.95)}to{opacity:.45;transform:translateX(2%)}}
+@media(prefers-reduced-motion:reduce){.travel-pictures img.moving,.touring[data-scene] .panorama-mist{animation:none}}

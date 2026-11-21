@@ -1,3 +1,4 @@
+import {transferDraft} from './workspace-draft.js';
 import {setupDeparture} from './departure-picker.js';
 import {liveEvents, liveRequest} from './api.js';
 import {setupAccount} from './account.js';
@@ -42,6 +43,7 @@ async function init() {
   const events = demo?.openEvents || liveEvents;
   const seeWeather = setupGuide();
   if (demo) {
+    $('preview').textContent='预览行程需求 →';
     $('demo-banner').hidden = false;
     $('home-link').href = '/?demo=travel';
     $('demo-link').href = '/';
@@ -224,6 +226,10 @@ async function init() {
       }
       const trip = data.trip;
       const destinations = (trip.poi_ids || []).map(id => catalog.get(id)?.name || id).join('、');
+      if (!demo) {
+        await transferDraft(trip, attachmentIds, destinations.split('、'), task);
+        return;
+      }
       const dateRange = [trip.start_date, trip.end_date].filter(Boolean).join(' 至 ');
       const scope = {person: '人均', group: '全团'}[trip.budget_scope] || '口径待确认';
       area.append(make('p', [trip.origin, destinations, dateRange, Number.isInteger(trip.travelers) ? `${trip.travelers} 人` : '', cny(trip.budget_fen), scope,

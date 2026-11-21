@@ -79,6 +79,6 @@ export function openDialog(id) {
   const dialog = $(id);
   if (!dialog.open) dialog.showModal();
 }
-for (const close of document.querySelectorAll('[data-close]')) {
+for (const close of document.querySelectorAll('dialog [data-close]')) {
   close.addEventListener('click', () => close.closest('dialog').close());
 }

@@ -14,6 +14,11 @@
   const LABELS = {pending:'尚未开始',running:'执行中',ready:'已产出',done:'已完成',error:'执行失败',cancelled:'已终止',waiting:'等待决策',awaiting_confirm:'等待确认计划',awaiting_sources:'等待选择 MCP',awaiting_gate:'等待核查决策'};
   const PROVIDERS = {parallel:'Parallel',you:'You.com',bailian:'百炼'};
   const FINAL = new Set(['done','error','cancelled']);
+  const handoff = import('/static/travel/workspace-draft.js');
+  let draftId = new URLSearchParams(location.search).get('draft');
+  let travelDraft = null;
+  let readerRun = null;
+  let readerVersion = 0;
   let S, es = null, renderTimer, viewRequest = 0, clockOffset = 0, openTrigger;
   const fresh = () => ({id:null,task:'',status:'pending',view:'planning',follow:true,timeline:null, stages:Object.fromEntries(ROLES.map(r=>[r[0],{status:'pending',label:'',model:''}])),
     strategy:'legacy',decisions:[],plan:null,evidence:[],knowledge:null,findings:[],reports:{},reportTab:null,verifications:{},gates:{},calls:{},activities:[],logs:[],usage:{},resources:null,quality:null,conflicts:[],sources:[],completedQuestions:new Set(),pending:null,scroll:{},dirty:false,lastTs:null,error:null});
@@ -34,7 +39,7 @@
     $('#readiness-models').textContent=modelsLoaded?'模型配置已载入 · 尚未调用':modelsLoadFailed?'模型配置载入失败 · 请刷新重试':'正在读取模型配置';
   }
   function health(ok,text){serviceState={ok,text};$('#health-pill').classList.toggle('ok',ok);$('#health-pill').classList.toggle('bad',!ok);$('#health-text').textContent=text;renderReadiness();}
-  function runningUI(){const active=!!S.id&&!FINAL.has(S.status), resumable=['error','cancelled'].includes(S.status);$('#btn-new-research').disabled=active||startPending;$('#btn-run').disabled=active||startPending||!modelsLoaded;$('#btn-run-text').textContent=startPending?'正在创建研究…':active?'研究进行中':modelsLoaded?'开始研究':'模型配置载入中';$('#btn-cancel').classList.toggle('hidden',!active);$('#btn-resume').classList.toggle('hidden',!resumable);$('#btn-resume').disabled=!modelsLoaded||!!S.resumeInfo?.unavailable;$('#resume-help').classList.toggle('hidden',!resumable);$('#resume-model-option').classList.toggle('hidden',!resumable);$('#btn-resume').textContent=$('#resume-change-models').checked?'↻ 改用上方模型，从断点继续':'↻ 从中断处继续（保留原模型）';if(resumable)$('#resume-help').textContent=S.resumeInfo?.unavailable?S.resumeInfo.message:S.resumeInfo?`复用：${S.resumeInfo.reuse_labels.join('、')||'已保存操作'}。从${S.resumeInfo.next_label}继续，成功产出不重做。`:'从失败步骤继续，复用成功产出；本次工作预算重新计算，历史计时保留。';}
+  function runningUI(){const active=!!S.id&&!FINAL.has(S.status), resumable=['error','cancelled'].includes(S.status);$('#btn-new-research').disabled=active||startPending;$('#btn-run').disabled=active||startPending||!modelsLoaded||(!!draftId&&!travelDraft);$('#btn-run-text').textContent=startPending?'正在创建研究…':active?'研究进行中':modelsLoaded?'开始研究':'模型配置载入中';$('#btn-cancel').classList.toggle('hidden',!active);$('#btn-resume').classList.toggle('hidden',!resumable);$('#btn-resume').disabled=!modelsLoaded||!!S.resumeInfo?.unavailable;$('#resume-help').classList.toggle('hidden',!resumable);$('#resume-model-option').classList.toggle('hidden',!resumable);$('#btn-resume').textContent=$('#resume-change-models').checked?'↻ 改用上方模型，从断点继续':'↻ 从中断处继续（保留原模型）';if(resumable)$('#resume-help').textContent=S.resumeInfo?.unavailable?S.resumeInfo.message:S.resumeInfo?`复用：${S.resumeInfo.reuse_labels.join('、')||'已保存操作'}。从${S.resumeInfo.next_label}继续，成功产出不重做。`:'从失败步骤继续，复用成功产出；本次工作预算重新计算，历史计时保留。';}
   function setTimeline(t){if(!t)return;S.timeline=structuredClone(t);clockOffset=t.server_ms-Date.now();}
   function current(){return S.timeline?.current_stage||S.current||'planning';}
   function elapsed(stage,now){const row=S.timeline?.stages?.[stage];if(!row)return null;return row.elapsed_ms+(row.active_since_ms!=null&&!FINAL.has(S.status)?Math.max(0,now-row.active_since_ms):0);}
@@ -142,6 +147,15 @@
     if(ev.run_id&&ev.run_id!==S.id)return;
     if(ev.timeline)setTimeline(ev.timeline);
     let changed=ev.stage||'planning';
+    if(S.domain==='guizhou_travel'){
+      const stage=ev.type==='report'?'reporting':ev.stage;
+      if(stage && S.stages[stage] && stage!==S.current){
+        if(S.current && S.stages[S.current].status==='running')S.stages[S.current].status='done';
+        S.current=stage;S.stages[stage].status='running';
+        if(S.follow)S.view=stage;
+      }
+      if(ev.type==='done' && S.current)S.stages[S.current].status='done';
+    }
     switch(ev.type){
       case 'phase':S.stages[ev.stage].label=ev.label;addActivity(ev,ev.label);break;
       case 'stage':S.stages[ev.stage]={...S.stages[ev.stage],status:ev.status,label:ev.label||'',model:ev.model_label||S.stages[ev.stage].model};if(ev.status==='running'){S.current=ev.stage;S.status='running';if(S.follow)S.view=ev.stage;}addActivity(ev,ev.label||'阶段状态更新');break;
@@ -179,7 +193,7 @@
       case 'operation_start':addActivity(ev,`${operationLabel(ev.operation)} · 等待预算 ${Math.ceil(ev.timeout_seconds)} 秒`);break;
       case 'operation_done':addActivity(ev,`${operationLabel(ev.operation)}完成 · ${ev.elapsed_seconds} 秒`);break;
       case 'model_attempt':addActivity(ev,`${operationLabel(ev.operation)} · 第 ${ev.attempt} 次请求 · ${{running:'等待模型返回',returned:`已返回（${ev.elapsed_seconds} 秒）`,error:`请求失败（${ev.elapsed_seconds} 秒）`}[ev.status]||ev.status}`);break;
-      case 'done':S.status='done';clearPending();Object.values(S.calls).forEach(c=>{if(c.status==='busy')c.status='interrupted';});addActivity(ev,'研究完成 · 报告与核查记录已保存');if(!replay)loadHistory();break;
+      case 'done':S.status='done';clearPending();Object.values(S.calls).forEach(c=>{if(c.status==='busy')c.status='interrupted';});addActivity(ev,'研究完成 · 报告与核查记录已保存');if(!replay){const id=S.id, revision=viewRequest;queueMicrotask(()=>{if(S.id===id && viewRequest===revision)void viewRun(id,true);});}break;
       case 'cancelled':S.status='cancelled';clearPending();Object.values(S.calls).forEach(c=>{if(c.status==='busy')c.status='interrupted';});addActivity(ev,'任务已终止');if(!replay)loadHistory();break;
       case 'error':S.status='error';S.error=ev;clearPending();Object.values(S.calls).forEach(c=>{if(c.status==='busy')c.status='interrupted';});showError(ev);if(!replay)loadHistory();break;
       case 'stream_end':es?.close();es=null;return;
@@ -190,31 +204,92 @@
   function mergeEvidence(items){const keys=new Set(S.evidence.map(e=>e.subquestion+'|'+e.source));for(const e of items){const key=e.subquestion+'|'+e.source;if(!keys.has(key)){keys.add(key);S.evidence.push(e);}}}
   function operationLabel(key){const parts=String(key||'').split(':');return ({planning:'研究规划',quick:'分析与结论整理',analyzing:'资料分析',reasoning:'证据推理',search:'网页查询',report:'报告处理'})[parts[0]]+(parts.includes('check')?'核查':'')||'当前步骤';}
   function showError(ev){$('#error-banner').classList.remove('hidden');$('#error-banner-title').textContent='研究暂时中断';$('#error-banner-msg').textContent=ev.message||'请求未完成，可从检查点恢复。';$('#error-banner-trace').textContent=ev.traceback||'';}
-  function connect(after=-1){es?.close();const rid=S.id,source=new EventSource(`/api/runs/${rid}/events?after=${after}`);es=source;source.onopen=()=>{if(es===source)health(true,'实时连接正常');};source.onmessage=e=>{if(S.id!==rid||es!==source)return;try{ingest(JSON.parse(e.data));}catch(err){console.error(err);}};source.onerror=()=>{if(es===source&&!FINAL.has(S.status)){health(false,'连接恢复中 · 后台可能仍在运行');void window.OSINTAuth?.check();}};}
-  async function viewRun(rid){const request=++viewRequest;es?.close();es=null;closeAll();try{const d=await api(`/api/runs/${rid}`);if(request!==viewRequest)return;if(d.status==='done'&&(d.domain==='guizhou_travel'||d.trip_plan)){location.assign('/?travel_report='+encodeURIComponent(rid));return;}S=fresh();S.id=rid;S.task=d.task;S.strategy=d.search_strategy||'legacy';$('#error-banner').classList.add('hidden');for(const e of d.events||[])ingest(e,true);if(!S.decisions.length)S.decisions=d.summary?.decision_history||[];S.status=d.status;if(S.status==='done')$('#error-banner').classList.add('hidden');for(const r of d.reports||[])if(FINAL.has(d.status)||!S.reports[r.type])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications={...(d.summary?.verifications||{}),...S.verifications};S.resources=d.summary?.resource_usage||S.resources;S.quality=d.summary?.evidence_metrics||S.quality;S.conflicts=d.summary?.conflicts||S.conflicts;S.plan=S.plan||d.summary?.plan;S.knowledge=S.knowledge||d.summary?.knowledge;if(!S.evidence.length)S.evidence=d.summary?.evidence||[];if(!S.findings.length)S.findings=d.summary?.findings||[];S.sources=d.search_sources||S.sources;S.resumeInfo=d.resume_info;setTimeline(d.timeline);if(!d.events?.length){S.plan=d.summary?.plan;S.evidence=d.summary?.evidence||[];S.knowledge=d.summary?.knowledge;S.findings=d.summary?.findings||[];for(const r of d.reports||[])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications=d.summary?.verifications||{};}if(d.pending_sources)S.pending={kind:'sources',payload:d.pending_sources};else if(d.pending_gate)S.pending={kind:'gate',payload:d.pending_gate};else if(d.pending_plan)S.pending={kind:'plan',payload:{plan:d.pending_plan}};else if(FINAL.has(S.status))S.pending=null;S.view=S.pending?.kind==='sources'?'collecting':current();renderScreen();renderMetrics();renderContent(true);if(!FINAL.has(S.status))connect((d.events||[]).length-1);if(S.pending)openPending();loadHistory();}catch(error){toast(error.message);}}
+  function connect(after=-1){
+    es?.close();
+    const rid=S.id, source=new EventSource(`/api/runs/${rid}/events?after=${after}`);
+    es=source;
+    source.onopen=()=>{if(es===source)health(true,'实时连接正常');};
+    source.onmessage=e=>{
+      if(S.id!==rid || es!==source)return;
+      try{
+        const event=JSON.parse(e.data);
+        if(event.type!=='stream_end' && e.lastEventId && /^\d+$/.test(e.lastEventId)){
+          const seq=Number(e.lastEventId);
+          if(seq<=after)return;
+          after=seq;
+        }
+        if(event.type==='tool_result' && event.call_id && S.calls[event.call_id]?.status==='success')return;
+        ingest(event);
+      }catch(err){console.error(err);}
+    };
+    source.onerror=()=>{if(es===source&&!FINAL.has(S.status)){health(false,'连接恢复中 · 后台可能仍在运行');void window.OSINTAuth?.check();}};
+  }
+  async function viewRun(rid,completed=false){if(startPending && !completed)return;const request=++viewRequest;es?.close();es=null;closeAll();try{let d=await api(`/api/runs/${rid}`);
+    for(let retry=0;completed && retry<6 && (d.status!=='done'||!d.reports?.length);retry++){
+      if(request!==viewRequest)return;
+      await new Promise(resolve=>setTimeout(resolve,300));
+      d=await api(`/api/runs/${rid}`);
+    }
+    if(request!==viewRequest)return;forgetDraft();rememberWorkspace(rid);S=fresh();S.id=rid;S.domain=d.domain;S.detail=d;S.task=d.task;S.strategy=d.search_strategy||'legacy';$('#error-banner').classList.add('hidden');for(const e of d.events||[])ingest(e,true);if(!S.decisions.length)S.decisions=d.summary?.decision_history||[];S.status=d.status;if(S.status==='done')$('#error-banner').classList.add('hidden');for(const r of d.reports||[])if(FINAL.has(d.status)||!S.reports[r.type])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications={...(d.summary?.verifications||{}),...S.verifications};S.resources=d.summary?.resource_usage||S.resources;S.quality=d.summary?.evidence_metrics||S.quality;S.conflicts=d.summary?.conflicts||S.conflicts;S.plan=S.plan||d.summary?.plan;S.knowledge=S.knowledge||d.summary?.knowledge;if(!S.evidence.length)S.evidence=d.summary?.evidence||[];if(!S.findings.length)S.findings=d.summary?.findings||[];S.sources=d.search_sources||S.sources;S.resumeInfo=d.resume_info;setTimeline(d.timeline);if(!d.events?.length){S.plan=d.summary?.plan;S.evidence=d.summary?.evidence||[];S.knowledge=d.summary?.knowledge;S.findings=d.summary?.findings||[];for(const r of d.reports||[])S.reports[r.type]={markdown:r.markdown,status:'generated'};S.verifications=d.summary?.verifications||{};}if(d.pending_sources)S.pending={kind:'sources',payload:d.pending_sources};else if(d.pending_gate)S.pending={kind:'gate',payload:d.pending_gate};else if(d.pending_plan)S.pending={kind:'plan',payload:{plan:d.pending_plan}};else if(FINAL.has(S.status))S.pending=null;S.view=S.pending?.kind==='sources'?'collecting':current();renderScreen();renderMetrics();renderContent(true);if(!FINAL.has(S.status))connect((d.events||[]).length-1);if(S.pending)openPending();loadHistory();if(d.status==='done' && d.reports?.length)void openFinalReport();}catch(error){toast(error.message);}}
+  const welcomeTitle=$('#welcome-title').textContent;
+  const welcomeLabel=$('.welcome-compose label').textContent;
+  function rememberWorkspace(runId) {
+    const url=new URL(location.href);
+    url.searchParams.delete('draft');
+    if(url.pathname==='/')url.searchParams.set('workspace','research');
+    if(runId)url.searchParams.set('record',runId);
+    else url.searchParams.delete('record');
+    history.replaceState(null,'',url);
+  }
+  function forgetDraft() {
+    $('#welcome-title').textContent=welcomeTitle;
+    $('.welcome-compose label').textContent=welcomeLabel;
+    document.body.classList.remove('travel-draft-mode');
+    if (draftId) sessionStorage.removeItem('travel-workspace-draft');
+    draftId=null;travelDraft=null;
+    $('#draft-instruction').hidden=true;
+  }
   function newResearch(){
     if(startPending||S.id&&!FINAL.has(S.status))return;
-    ++viewRequest;es?.close();es=null;closeAll();S=fresh();
+    ++viewRequest;es?.close();es=null;closeAll();forgetDraft();rememberWorkspace();S=fresh();
     $('#task-input').value='';$('#error-banner').classList.add('hidden');
     document.body.classList.remove('focus-mode');$('#btn-focus').setAttribute('aria-pressed','false');$('#btn-focus').textContent='专注大屏';
     renderScreen();renderMetrics();renderContent(true);loadHistory();updateRecommendation();
     document.dispatchEvent(new CustomEvent('osint:welcome'));$('#task-input').focus();
   }
   function selectedModels(){return Object.fromEntries($$('#role-grid select').map(s=>[s.dataset.role,s.value]));}
-  async function startRun(){if(startPending||!modelsLoaded||S.id&&!FINAL.has(S.status))return;const task=$('#task-input').value.trim();if(!task){toast('请输入研究任务');return;}const roles=selectedModels();startPending=true;runningUI();try{const d=await api('/api/runs',{task,model_id:roles.planner,role_models:$('#model-mode').value==='recommended'?null:roles,execution_mode:$('#execution-mode').value,search_strategy:$('#search-strategy').value,auto_confirm:false});++viewRequest;S=fresh();S.id=d.run_id;S.task=task;S.strategy=$('#search-strategy').value;S.status='running';$('#error-banner').classList.add('hidden');renderScreen();renderMetrics();renderContent(true);connect();loadHistory();}catch(error){toast(error.message);}finally{startPending=false;runningUI();}}
+  async function startRun(){
+    if(startPending || !modelsLoaded || (draftId && !travelDraft) || (S.id && !FINAL.has(S.status)))return;
+    const task=$('#task-input').value.trim();
+    if(!task){toast('请输入研究任务');return;}
+    const roles=selectedModels();
+    const settings={model_id:roles.planner,role_models:$('#model-mode').value==='recommended'?null:roles,
+      execution_mode:$('#execution-mode').value,search_strategy:$('#search-strategy').value,auto_confirm:false};
+    startPending=true;
+    runningUI();
+    try{
+      const domain=travelDraft ? 'guizhou_travel' : null;
+      const d=travelDraft ? await (await handoff).startDraft(travelDraft,task,settings) : await api('/api/runs',{task,...settings});
+      ++viewRequest;
+      forgetDraft();
+      rememberWorkspace(d.run_id);
+      closeAll();
+      S=fresh();S.id=d.run_id;S.domain=domain;S.task=task;S.strategy=settings.search_strategy;S.status='running';
+      $('#error-banner').classList.add('hidden');
+      renderScreen();renderMetrics();renderContent(true);connect();loadHistory();
+    }catch(error){toast(error.message);}
+    finally{startPending=false;runningUI();}
+  }
   async function cancelRun(){if(!S.id)return;try{await api(`/api/runs/${S.id}/cancel`,{});await viewRun(S.id);}catch(error){toast(error.message);}}
   async function resumeRun(){if(!S.id||!modelsLoaded)return;$('#btn-resume').disabled=true;try{const change=$('#resume-change-models').checked;await api(`/api/runs/${S.id}/resume`,{use_recommended:false,role_models:change?selectedModels():null});await viewRun(S.id);}catch(error){toast(error.message);}finally{runningUI();}}
-  async function loadHistory(){try{const d=await api('/api/runs');$('#history-list').innerHTML=(d.runs||[]).map(h=>{const title=/^帮我拟一[个份].*(旅游|旅行)计划/.test(h.task)?((h.task.match(/去([^，、的]{2,12})的/)||[])[1]||'贵州')+'旅行行程':h.task;const date=new Date(h.created_at),validDate=Number.isFinite(date.getTime());const reportLink=h.status==='done' && h.report_count>0;
-      const tag=reportLink?'a':'button';
-      const target=h.domain==='guizhou_travel'?'/?travel_report=':'/?history_report=';
-      const action=reportLink?'href="'+target+encodeURIComponent(h.id)+'"':'data-run="'+esc(h.id)+'"';
+  async function loadHistory(){try{const d=await api('/api/runs');$('#history-list').innerHTML=(d.runs||[]).map(h=>{const title=/^帮我拟一[个份].*(旅游|旅行)计划/.test(h.task)?((h.task.match(/去([^，、的]{2,12})的/)||[])[1]||'贵州')+'旅行行程':h.task;const date=new Date(h.created_at),validDate=Number.isFinite(date.getTime());const tag='button', action='type="button" data-run="'+esc(h.id)+'"';
       return `<${tag} class="history-item ${h.id===S.id?'active':''}" ${action} aria-current="${h.id===S.id}"><div class="history-task" title="${esc(title)}">${esc(title)}</div><div class="history-meta"><span class="history-status" data-status="${esc(h.status)}"><i class="status-dot ${esc(h.status)}" aria-hidden="true"></i>${esc(LABELS[h.status]||h.status)}</span><time ${validDate?`datetime="${esc(date.toISOString())}"`:''}>${validDate?esc(date.toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})):'日期未知'}</time></div><small class="history-count">${esc(h.report_count||0)} 份报告</small></${tag}>`;}).join('')||'<div class="empty">暂无研究记录</div>';$$('[data-run]').forEach(b=>b.addEventListener('click',()=>viewRun(b.dataset.run)));}catch{toast('研究记录读取失败');}}
-  function closeAll(){$$('.modal-overlay').forEach(m=>m.classList.add('hidden'));document.dispatchEvent(new CustomEvent('osint:report-chat-close'));}
+  function closeAll(){readerVersion++;readerRun=null;if($('#final-reader').open)$('#final-reader').close();$$('.modal-overlay').forEach(m=>m.classList.add('hidden'));document.dispatchEvent(new CustomEvent('osint:report-chat-close'));}
   function openModal(id){openTrigger=document.activeElement;closeAll();const modal=$('#'+id);modal.classList.remove('hidden');modal.querySelector('button,input,textarea')?.focus();}
   function closeModal(id){$('#'+id).classList.add('hidden');if(openTrigger?.isConnected)openTrigger.focus();}
   function openPending(){if(!S.pending)return;const {kind,payload}=S.pending;if(kind==='plan'){const routing=S.policy?.routing?.reason;$('#confirm-plan-body').innerHTML=(routing?`<p><strong>${esc(S.policy.label)}</strong> ‷ ${esc(routing)}</p>`:'')+renderPlan(payload.plan||S.plan);openModal('confirm-modal');}if(kind==='sources'){$('#sources-options').innerHTML=(payload.options||[]).map(p=>`<label class="source-option"><input type="checkbox" value="${esc(p.id)}" ${(payload.selected||[]).includes(p.id)?'checked':''}><span><strong>${esc(p.name)}<span class="source-cost ${p.free?'':'paid'}">${p.free?'免 Key · 免费档':'可能计费'}</span></strong><small>${esc(p.description)}</small></span></label>`).join('');$('#sources-error').textContent='';openModal('sources-modal');}if(kind==='gate'){$('#gate-modal-sub').textContent='请检查问题与影响，再选择重做或接受问题继续。';$('#gate-body').innerHTML=verification(payload);openModal('gate-modal');}}
   async function submit(button,url,body,modal){const rid=S.id;button.disabled=true;try{await api(`/api/runs/${rid}/${url}`,body);if(S.id===rid)closeModal(modal);}catch(error){if(modal==='sources-modal')$('#sources-error').textContent=error.message;else toast(error.message);}finally{button.disabled=false;}}
-  function askReport(){if(S.status!=='done')return;const reportType=Object.keys(S.reports).includes(S.reportTab)?S.reportTab:Object.keys(S.reports)[0];if(reportType)document.dispatchEvent(new CustomEvent('osint:report-question',{detail:{runId:S.id,reportType}}));}
+  function askReport(){if(S.status!=='done')return;const reportType=Object.keys(S.reports).includes(S.reportTab)?S.reportTab:Object.keys(S.reports)[0];if(reportType)document.dispatchEvent(new CustomEvent('osint:report-question',{detail:{runId:S.id,reportType,domain:S.domain}}));}
   function downloadReport(){if(S.id)window.location.assign(`/api/runs/${S.id}/report.md`);}
   async function openSagImport(){
     if(!sagEnabled||S.status!=='done'||!S.reportTab)return;
@@ -300,7 +375,48 @@
       $('#mode-description').textContent=d.semantic_on_start?'开始后按任务选择最多 1、3 或 5 个子问题。':`${mode==='auto'?'自动匹配：':''}${d.label} · 已配置对应岗位模型${$('#model-mode').value==='custom'?'（当前保留手动选择）':''}。`;
     }catch{if(request===recommendationRequest)toast('模型推荐更新失败，请重新选择研究深度后重试');}
   }
-  function openFinalReport(){selectStage('reporting',false);$('#stage-content').scrollTop=0;$('.result-panel').scrollIntoView({behavior:'instant',block:'start'});}
+  async function openFinalReport(){
+    if(S.status!=='done')return;
+    const id=S.id, revision=++readerVersion;
+    try{
+      const detail=S.detail || await api('/api/runs/'+encodeURIComponent(id));
+      if(revision!==readerVersion || S.id!==id)return;
+      S.detail=detail;
+      const reports=detail.reports||[];
+      if(!reports.length){toast('这条任务还没有最终报告。');return;}
+      const reader=$('#final-reader'), body=$('#report-body'), types=$('#reader-types');
+      const type=reports.find(r=>r.type===S.reportTab)?.type || reports[0].type;
+      S.reportTab=type;
+      readerRun=id;
+      types.replaceChildren();
+      for(const report of reports.length>1?reports:[]){
+        const tab=document.createElement('button');tab.type='button';tab.className='soft-button';tab.textContent=report.type;
+        tab.setAttribute('aria-pressed',String(type===report.type));tab.onclick=()=>{S.reportTab=report.type;void openFinalReport();};types.append(tab);
+      }
+      $('#reader-title').textContent=type;
+      body.replaceChildren();
+      if(!reader.open)reader.showModal();
+      reader.scrollTop=0;
+      if(detail.domain==='guizhou_travel' || detail.trip_plan || detail.summary?.trip_plan){
+        const [{renderJourney},{renderFormat},{loadCatalog},{liveRequest}]=await Promise.all([
+          import('/static/travel/journey.js'),import('/static/travel/cards.js'),import('/static/travel/pois.js'),import('/static/travel/api.js')]);
+        const catalog=await loadCatalog().catch(()=>new Map());
+        if(revision!==readerVersion || !reader.open || S.id!==id)return;
+        const travel={...detail,trip_plan:detail.trip_plan || detail.summary?.trip_plan};
+        renderJourney(body,travel,catalog,liveRequest);
+        renderFormat(body,travel);
+        if (!travel.card_report && reports[0].markdown && travel.trip_plan) {
+          const full=document.createElement('details'), heading=document.createElement('summary');
+          full.className='report-evidence';heading.textContent='阅读完整行程正文';
+          const article=document.createElement('article');article.className='report-md';
+          article.innerHTML=markdown(reports[0].markdown);full.append(heading,article);body.append(full);
+        }
+      }else{
+        const article=document.createElement('article');article.className='report-md';
+        article.innerHTML=markdown(reports.find(r=>r.type===type)?.markdown);body.append(article);
+      }
+    }catch(error){toast(error.message);}
+  }
   async function init(){buildNav();bind();setInterval(tick,1000);renderScreen();$('#model-mode').onchange=()=>applyModelMode($('#model-mode').value==='recommended');$('#btn-reset-models').onclick=()=>{$('#model-mode').value='recommended';applyModelMode(true);toast('已恢复推荐岗位模型');};$('#execution-mode').onchange=()=>{$('#mode-description').textContent=({auto:'简单释义合并分析与推理；复杂任务保留完整研究流程。',quick:'工作预算 5 分钟，1 份简明报告，保留最终事实核查。',standard:'工作预算 8 分钟，按需生成报告，避免逐阶段重复核查。',deep:'工作预算 12 分钟，更多证据与定向核查。人工等待不计入预算。'})[$('#execution-mode').value];};await Promise.allSettled([api('/api/health').then(d=>health(d.model_ready??d.has_key,d.experiment_mode?(d.has_key?'AMD Radeon Cloud \u00b7 \u5b9e\u9a8c\u6a21\u5f0f':'AMD Radeon Cloud \u00b7 \u7f3a\u5c11 API Key'):(d.model_ready??d.has_key)?'服务已连接':'模型服务未就绪')).catch(()=>health(false,'服务离线')),api('/api/models').then(d=>{sagEnabled=d.sag_enabled===true;modelDefaults=d.role_defaults||{};modelReasons=d.role_reasons||{};modelProfiles=d.role_profiles||{};profileReasons=d.profile_reasons||{};$$('#role-grid select').forEach(sel=>{sel.innerHTML=(d.models||[]).map(m=>`<option value="${esc(m.id)}" ${m.available===false?'disabled':''}>${esc(m.label)}${m.available===false?' · '+esc(m.unavailable_reason||'当前额度不可用'):''}</option>`).join('');const note=document.createElement('small');note.textContent=modelReasons[sel.dataset.role]||'';sel.parentElement.append(note);});$('#model-sources').innerHTML=(d.sources||[]).map(s=>`<a href="${esc(safeURL(s.url))}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>`).join(' · ');applyModelMode(true);modelsLoaded=true;renderReadiness();runningUI();updateRecommendation();}).catch(()=>{modelsLoadFailed=true;renderReadiness();toast('无法载入岗位配置，请刷新后重试');})]);loadHistory();}
   document.addEventListener('DOMContentLoaded',()=>{
     $('#btn-comparison').onclick=async()=>{try{const d=await api('/api/comparison');$('#comparison-result').innerHTML='<p>固定模拟数据；不是实际搜索质量或云端耗时承诺。完整报告位于 outputs/comparison/latest.md。</p>'+d.scenarios.map(s=>`<h3>${esc(s.name)}</h3><table><thead><tr><th>指标</th><th>Legacy</th><th>Adaptive</th></tr></thead><tbody>${['search_calls','unique_urls','unique_domains','duplicate_ratio','supplemental_searches','early_stops','provider_switches'].map(k=>`<tr><th>${esc(({search_calls:'搜索次数',unique_urls:'独立网址',unique_domains:'来源域名',duplicate_ratio:'重复率',supplemental_searches:'补搜次数',early_stops:'提前停止',provider_switches:'渠道切换'})[k])}</th><td>${esc(s.legacy[k]??'unknown')}</td><td>${esc(s.adaptive[k]??'unknown')}</td></tr>`).join('')}</tbody></table>`).join('');}catch(e){$('#comparison-result').textContent=e.message;}};
@@ -309,6 +425,27 @@
     void init();
     const record=new URLSearchParams(location.search).get('record');
     if(record) void viewRun(record);
+    else if(draftId){
+      const expected=draftId, hint=$('#draft-instruction');
+      document.body.classList.add('travel-draft-mode');
+      $('#welcome-title').textContent='核对这次旅行的安排';
+      $('.welcome-compose label').textContent='行程草稿';
+      hint.hidden=false;hint.textContent='正在读取行程草稿…';
+      handoff.then(module=>module.restoreDraft(expected)).then(draft=>{
+        if(draftId!==expected)return;
+        travelDraft=draft;$('#task-input').value=draft.text;
+        hint.textContent='可在前三行直接修改地点、日期、人数和预算，末尾可自由补充需求。点击“开始研究”后查询。';
+        runningUI();$('#task-input').focus();
+      }).catch(error=>{if(draftId===expected)hint.textContent=error.message;});
+    }
+    $('#task-input').addEventListener('input',()=>{
+      if(travelDraft){travelDraft.text=$('#task-input').value;sessionStorage.setItem('travel-workspace-draft',JSON.stringify(travelDraft));}
+    });
+    $('#reader-close').onclick=()=>$('#final-reader').close();
+    $('#final-reader').addEventListener('close',()=>{
+      if(!$('#final-reader').open && readerRun===S.id && S.id){readerRun=null;askReport();}
+    });
+    $('#reopen-report').onclick=openFinalReport;
   });
   document.addEventListener('DOMContentLoaded',()=>{
     $('#execution-mode').addEventListener('change',updateRecommendation);

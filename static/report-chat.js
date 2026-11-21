@@ -18,6 +18,7 @@
     return data;
   }
   function hide(restore = true) {
+    document.body.classList.remove('report-conversation-mode');
     ++opening; $('#report-chat-modal').classList.add('hidden'); current = null;
     if (restore && trigger?.isConnected) trigger.focus();
   }
@@ -56,13 +57,15 @@
   }
   async function open(context) {
     if (!context?.runId || !context.reportType) return;
+    if (current?.loaded && current.key === keyOf(context)) { $('#report-chat-question').focus(); return; }
     const token = ++opening; trigger = document.activeElement;
     document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.add('hidden'));
     const c = current = {...context,key:keyOf(context),data:null,loaded:false,modelsLoaded:false,error:''};
     $('#report-chat-title').textContent = `就报告提问 · ${context.reportType}`;
     $('#report-chat-question').value = '';
+    $('#research-chat-model').hidden=context.domain==='guizhou_travel';
     $('#report-chat-model').replaceChildren();
-    $('#report-chat-modal').classList.remove('hidden'); $('#report-chat-close').focus(); render();
+    $('#report-chat-modal').classList.remove('hidden'); document.body.classList.add('report-conversation-mode'); render();
     const url = `/api/runs/${encodeURIComponent(context.runId)}/report-chat?report_type=${encodeURIComponent(context.reportType)}`;
     try {
       const [data, models] = await Promise.all([request(url),request('/api/models')]);
@@ -125,23 +128,10 @@
   document.addEventListener('osint:report-question',e=>open(e.detail));
   document.addEventListener('osint:report-chat-close',()=>hide(false));
   document.addEventListener('DOMContentLoaded',()=>{
-    const modal=$('#report-chat-modal');
-    $('#report-chat-close').onclick=()=>hide();
+    $('#report-chat-close').onclick=()=>{hide(false);$('#btn-ask-report').focus();};
     $('#report-chat-form').onsubmit=e=>{e.preventDefault();send();};
     $('#report-chat-question').onkeydown=e=>{
       if (e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&!e.isComposing) {e.preventDefault();send();}
     };
-    modal.addEventListener('click',e=>{if(e.target===modal){e.stopImmediatePropagation();hide();}},true);
-    modal.addEventListener('keydown',e=>{
-      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();hide();}
-      if(e.key==='Tab'){
-        e.stopImmediatePropagation();
-        const nodes=[...modal.querySelectorAll('button,select,textarea,a[href]')].filter(n=>!n.disabled&&n.offsetParent!==null);
-        if(!nodes.length)return;
-        const first=nodes[0],last=nodes.at(-1);
-        if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
-        else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
-      }
-    },true);
   });
 })();

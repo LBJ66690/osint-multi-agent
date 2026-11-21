@@ -2,7 +2,7 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'outputs/engineering-review/ui');
-const models=JSON.parse(fs.readFileSync(path.join(root,'outputs/model_profile_options.json'),'utf8'));
+const models={models:[{id:'kimi-k3.1-pro',label:'回放模型'}], role_defaults:{planner:'kimi-k3.1-pro'},role_profiles:{standard:{planner:'kimi-k3.1-pro'}}};
 const marker='<img src=x onerror="window.__injected=true">';
 const plan={goal:'核对项目公告与公开调查中的关键差异',subquestions:[{question:'项目时间与经营数据是否一致？',search_queries:['项目 时间 公告']}],report_types:['研究报告']};
 const evidence=[{subquestion:plan.subquestions[0].question,title:'原始声明 '+marker,content:'甲项目在2025年完成一期建设。声明尚未明确二期进度，后续调查给出不同启动日期。'+marker,source:'https://original.example/report',provider:'parallel'}];
@@ -36,7 +36,7 @@ const records={
   if(url.origin!=='http://evidence.test'){unexpected.push(url.href);return route.abort();}
   if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'static/workspace.html'),'utf8')});
     if (url.pathname.endsWith('.svg')) return route.fulfill({contentType:'image/svg+xml',body:fs.readFileSync(path.join(root,url.pathname),'utf8')});
-  if(url.pathname.startsWith('/static/'))return route.fulfill({contentType:url.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,'static',path.basename(url.pathname)),'utf8')});
+  if(url.pathname.startsWith('/static/'))return route.fulfill({contentType:url.pathname.endsWith('.js')?'application/javascript':'text/css',body:fs.readFileSync(path.join(root,url.pathname),'utf8')});
   if (url.pathname === '/api/auth/me') return route.fulfill({status:404,json:{detail:'Not Found'}});
   if(url.pathname==='/api/health')return json({has_key:true});
   if(url.pathname==='/api/models')return json(models);
@@ -106,7 +106,7 @@ const records={
   assert.match(await page.locator('#stage-content').textContent(),/引用未覆盖关键属性/);
   await xss();
   // No SSE events in this fixture: all new fields must survive summary-only history loading.
-  await page.locator('[data-run="snapshot"]').click();await page.waitForFunction(()=>document.body.classList.contains('report-reading'));
+  await page.locator('[data-run="snapshot"]').click();await page.locator('#reader-close').click();await page.locator('#report-chat-close').click();await page.waitForFunction(()=>document.body.classList.contains('report-reading'));
   assert.equal(await page.locator('#report-ready.has-warnings').count(),1,'legacy contradictory report must retain its warning');
   assert.match(await page.locator('#resource-brief').textContent(),/5 次已记录模型请求.*1 次补搜/);
   assert.equal(await page.locator('#metric-tokens').textContent(),'未知');

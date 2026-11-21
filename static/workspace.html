@@ -22,11 +22,22 @@
       <div class="sidebar-foot"><span class="online-dot"></span>多智能体协作 · 证据驱动研究</div>
     </aside>
     <main class="workspace">
+      <section class="report-conversation hidden" id="report-chat-modal" aria-labelledby="report-chat-title">
+        <header><h2 id="report-chat-title">报告对话</h2><div class="workspace-actions"><button id="reopen-report" class="soft-button" type="button">查看报告</button><button id="report-chat-close" class="soft-button" type="button">查看工作流</button></div></header>
+        <label id="research-chat-model" class="report-chat-controls" hidden>回答模型<select id="report-chat-model" aria-label="问答模型"></select></label>
+        <div id="report-chat-messages" class="report-chat-messages" role="log" aria-live="polite"></div>
+        <form id="report-chat-form" class="report-chat-form">
+          <label for="report-chat-question" class="report-chat-question-label">继续问这份报告</label>
+          <textarea id="report-chat-question" rows="3" maxlength="4000" placeholder="还有哪些安排需要出发前确认？" disabled></textarea>
+          <p id="report-chat-error" class="report-chat-error" role="alert"></p>
+          <div class="report-chat-footer"><small id="report-chat-status"></small><button class="primary-button" id="report-chat-send" type="submit" disabled>发送问题</button></div>
+        </form>
+      </section>
       <section class="welcome-screen" id="welcome-screen" aria-labelledby="welcome-title">
         <div class="welcome-content">
           <div id="welcome-pet-host" class="welcome-pet-host"></div>
           <div class="welcome-copy"><span class="section-kicker">A LITTLE CURIOSITY, A CLEARER ANSWER</span><h1 id="welcome-title">今天，想一起弄明白什么？</h1><p>让导游小岚帮你跟进资料收集、分析和报告核查。</p></div>
-          <div class="welcome-compose"><label for="task-input">告诉我你的研究问题</label><div id="welcome-input-slot"></div><div class="welcome-compose-footer"><div class="welcome-settings"><span id="welcome-depth">自动匹配深度</span><span id="welcome-strategy">稳定检索</span><small>Ctrl / ⌘ + Enter 发送</small></div><div id="welcome-send-slot"></div></div></div>
+          <p id="draft-instruction" hidden role="status"></p><div class="welcome-compose"><label for="task-input">告诉我你的研究问题</label><div id="welcome-input-slot"></div><div class="welcome-compose-footer"><div class="welcome-settings"><span id="welcome-depth">自动匹配深度</span><span id="welcome-strategy">稳定检索</span><small>Ctrl / ⌘ + Enter 发送</small></div><div id="welcome-send-slot"></div></div></div>
           <div class="welcome-suggestions"><span>试着研究</span><div id="welcome-examples-slot"></div></div>
           <div class="welcome-flow" aria-label="研究流程"><span>01 理解问题</span><i>→</i><span>02 搜集证据</span><i>→</i><span>03 交付报告</span></div>
           <div class="welcome-links"><button type="button" class="soft-button" id="btn-preview-workspace">预览研究看板 ↗</button><span id="welcome-topology-slot"></span></div>
@@ -87,7 +98,10 @@
 <div class="modal-overlay hidden" id="gate-modal"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="gate-title"><div class="modal-head"><div><span class="section-kicker">QUALITY REVIEW</span><h3 id="gate-title">核查需要您的决定</h3><p id="gate-modal-sub"></p></div><button class="btn-close" data-close="gate-modal" aria-label="收起核查决策">×</button></div><div class="modal-body" id="gate-body"></div><div class="modal-foot"><label for="gate-feedback">补充意见</label><textarea id="gate-feedback" rows="2"></textarea><div class="modal-actions"><button class="soft-button" id="btn-gate-redo">打回重做</button><button class="primary-button" id="btn-gate-continue">接受问题，继续执行</button></div></div></div></div>
 <div class="toast hidden" id="toast" role="status"></div>
 <div class="modal-overlay hidden" id="topology-modal"><div class="modal topology-modal" role="dialog" aria-modal="true" aria-labelledby="topology-title"><div class="modal-head"><div><span class="section-kicker">SYSTEM ATLAS</span><h3 id="topology-title">项目拓扑</h3><p>查看岗位分工与系统结构，高亮对应当前真实阶段。</p></div><button class="btn-close" data-close="topology-modal" aria-label="关闭项目拓扑">×</button></div><div class="topology-tabs" role="tablist" aria-label="拓扑视图"><button id="tab-workflow" role="tab" aria-selected="true" aria-controls="topology-workflow" tabindex="0">执行编排</button><button id="tab-architecture" role="tab" aria-selected="false" aria-controls="topology-architecture" tabindex="-1">系统架构</button></div><div class="modal-body topology-body"><div id="topology-workflow" role="tabpanel" aria-labelledby="tab-workflow"></div><div id="topology-architecture" class="hidden" role="tabpanel" aria-labelledby="tab-architecture"></div></div></div></div>
-<div class="modal-overlay hidden" id="report-chat-modal"><div class="modal report-chat-dialog" role="dialog" aria-modal="true" aria-labelledby="report-chat-title" aria-describedby="report-chat-note"><div class="modal-head"><div><span class="section-kicker">ASK YOUR REPORT</span><h3 id="report-chat-title">就报告提问</h3></div><button class="btn-close" id="report-chat-close" aria-label="收起报告问答" title="收起对话；已发送的问题仍会继续">×</button></div><p class="report-chat-note" id="report-chat-note">可以就这份报告继续提问，并自行选择模型。每次发送会把完整报告与问题交给百炼，消耗所选模型额度；不会重新搜索或修改报告。</p><div class="report-chat-controls"><label for="report-chat-model">问答模型</label><select id="report-chat-model" disabled aria-label="选择报告问答模型"></select></div><div id="report-chat-messages" class="report-chat-messages" role="log" aria-live="polite" aria-label="报告问答记录"></div><form id="report-chat-form" class="report-chat-form"><label for="report-chat-question" class="report-chat-question-label">你想了解报告中的什么？</label><textarea id="report-chat-question" rows="3" maxlength="4000" placeholder="例如：这份报告的主要依据是什么？哪些结论还不确定？" disabled></textarea><p id="report-chat-error" class="report-chat-error" role="alert"></p><div class="report-chat-footer"><small id="report-chat-status">正在读取报告对话…</small><button class="primary-button" id="report-chat-send" type="submit" disabled>发送问题 ↗</button></div></form></div></div>
+<dialog id="final-reader" aria-labelledby="reader-title">
+  <header><h2 id="reader-title">最终报告</h2><button type="button" id="reader-close" class="soft-button" autofocus>关闭并返回对话</button></header>
+  <nav id="reader-types" aria-label="选择报告"></nav><div id="report-body"></div>
+</dialog>
 <div class="modal-overlay hidden" id="sag-import-modal"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="sag-import-title">
   <div class="modal-head"><div><h3 id="sag-import-title">保存报告片段到 SAG</h3><p>选择要保留的章节。原文和引用会一同保存为本地 Markdown。</p></div><button class="btn-close" data-close="sag-import-modal" aria-label="关闭">×</button></div>
   <div class="modal-body sources-options" id="sag-import-sections"></div>
@@ -97,6 +111,6 @@
 <script src="/static/workspace-layout.js?v=26"></script>
 <script src="/static/research-pet.js?v=27"></script>
 <script src="/static/auth.js?v=2"></script>
-<script src="/static/app.js?v=34"></script>
-<script src="/static/report-chat.js?v=24"></script>
+<script src="/static/app.js?v=35"></script>
+<script src="/static/report-chat.js?v=25"></script>
 </body></html>

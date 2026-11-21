@@ -1,6 +1,9 @@
 const page = new URL(location.href);
 const researchShell = document.documentElement.dataset.workspace === 'research';
-if (page.searchParams.has('travel_report')) {
+const record = page.searchParams.get('travel_report') || page.searchParams.get('history_report');
+if (record && page.searchParams.get('demo') !== 'travel') {
+  location.replace('/static/workspace.html?record='+encodeURIComponent(record));
+} else if (page.searchParams.has('travel_report')) {
   if (researchShell) {
     page.pathname = '/';
     page.searchParams.delete('workspace');

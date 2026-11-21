@@ -53,7 +53,7 @@ export function setupReport(request, catalog, demo) {
         showReport(record);
       };
     }
-    entry.href=url;
+    entry.href=demo ? url : '/static/workspace.html?record='+encodeURIComponent(id);
     return entry;
   }
   function historyLink(id,label){return reportLink(make('a',label),id);}
