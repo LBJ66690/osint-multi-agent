@@ -40,7 +40,7 @@ async function init() {
   const demo = params.get('demo') === 'travel' ? createDemo() : null;
   const request = demo?.request || liveRequest;
   const events = demo?.openEvents || liveEvents;
-  const seeWeather = setupGuide(!demo);
+  const seeWeather = setupGuide();
   if (demo) {
     $('demo-banner').hidden = false;
     $('home-link').href = '/?demo=travel';

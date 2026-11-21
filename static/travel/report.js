@@ -99,7 +99,8 @@ export function setupReport(request, catalog, demo) {
       const [data, models] = await Promise.all([request(url), request('/api/models')]);
       if (attempt !== generation) return;
       chat.data = data;
-      chat.model = asList(models.models).find(m => m.available !== false)?.id;
+      const available = asList(models.models).filter(model => model.available !== false);
+      chat.model = (available.find(model => model.id === models.default) || available[0])?.id;
       chat.ready=true;
       if (!chat.model) show('chat-error', '当前可查询报告摘录。');
       renderChat();

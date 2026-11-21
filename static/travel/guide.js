@@ -12,18 +12,23 @@ function getSetting(key) {
 function setSetting(key, value) {
   try { localStorage.setItem(key, String(value)); } catch { /* Settings are optional. */ }
 }
-function localVoice() {
-  try { return window.speechSynthesis?.getVoices().find(voice => voice.localService && /^zh(?:-|_|$)/i.test(voice.lang)); }
-  catch { return null; }
+function xiaoxiaoVoice() {
+  const voices = window.speechSynthesis?.getVoices() || [];
+  const matches = voices.filter(voice => {
+    const name = voice.name + ' ' + voice.voiceURI;
+    return /^zh/i.test(voice.lang) && /xiaoxiao|晓晓/i.test(name) && /microsoft|微软/i.test(name);
+  });
+  return matches.find(voice => /multilingual|多语言/i.test(voice.name)) || matches[0];
 }
 
-export function setupGuide(allowServerVoice) {
+export function setupGuide() {
   const image = $('guide-image');
   const guide = $('guide');
   const speech = $('voice');
   let voiceOn = getSetting('travel-guide-voice') === 'true';
   let utterance;
-  let audio, audioUrl, controller;
+  // Browsers can populate their voice list asynchronously after the first request.
+  window.speechSynthesis?.getVoices();
   let voiceGeneration = 0;
   let lastText = $('guide-message').textContent;
   let backgroundAction = 'idle';
@@ -32,10 +37,6 @@ export function setupGuide(allowServerVoice) {
 
   function stop() {
     voiceGeneration++;
-    controller?.abort();
-    controller=undefined;
-    if(audio){audio.pause();audio=undefined;}
-    if(audioUrl){URL.revokeObjectURL(audioUrl);audioUrl=undefined;}
     if (utterance) {
       utterance = undefined;
       window.speechSynthesis?.cancel();
@@ -48,39 +49,41 @@ export function setupGuide(allowServerVoice) {
     speech.textContent = title || (enabled ? '语音：开' : '语音：关');
     if (!enabled) stop();
   }
-  async function serverSpeech(text, generation) {
-    if (generation !== voiceGeneration || !voiceOn) return;
-    if (!allowServerVoice) {setVoice(false,'样例模式缺少浏览器中文语音');return;}
-    controller=new AbortController();
-    try {
-      const res=await fetch('/api/travel/guide-voice',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({text:text.slice(0,450)}),signal:controller.signal});
-      if (!res.ok) throw new Error();
-      const blob=await res.blob();
-      if (generation !== voiceGeneration) return;
-      audioUrl=URL.createObjectURL(blob);
-      audio=new Audio(audioUrl);
-      audio.onended=()=>{if(generation===voiceGeneration)stop();};
-      await audio.play();
-    } catch { if(generation===voiceGeneration)setVoice(false,'播放失败 · 点击重试'); }
-  }
-  function speak(text) {
+  async function speak(text) {
     if (!voiceOn || document.hidden || document.querySelector('dialog[open]')) return;
     stop();
-    const generation=voiceGeneration;
-    const voice=localVoice();
-    if (!voice || typeof SpeechSynthesisUtterance!=='function') {
-      void serverSpeech(text,generation);
-      return;
-    }
+    const generation = voiceGeneration;
+    const synth = window.speechSynthesis;
     try {
-      const job=new SpeechSynthesisUtterance(text);
-      job.voice=voice;job.lang=voice.lang;
-      job.onend=()=>{if(utterance===job)utterance=undefined;};
-      job.onerror=()=>{if(utterance===job){utterance=undefined;void serverSpeech(text,generation);}};
-      utterance=job;
-      window.speechSynthesis.speak(job);
-    } catch { void serverSpeech(text,generation); }
+      let voice = xiaoxiaoVoice();
+      if (!voice && synth) {
+        await new Promise(resolve => {
+          const done = () => {
+            clearTimeout(timeout);
+            synth.removeEventListener?.('voiceschanged', onChange);
+            resolve();
+          };
+          const onChange = () => { if (xiaoxiaoVoice()) done(); };
+          const timeout = setTimeout(done, 2000);
+          synth.addEventListener?.('voiceschanged', onChange);
+        });
+        if (generation !== voiceGeneration) return;
+        voice = xiaoxiaoVoice();
+      }
+      if (!voice || typeof SpeechSynthesisUtterance !== 'function') {
+        setVoice(false, '未找到晓晓 · 请用 Edge 重试');
+        return;
+      }
+      const job = new SpeechSynthesisUtterance(text);
+      job.voice = voice;
+      job.lang = voice.lang;
+      job.onend = () => { if (utterance === job) utterance = undefined; };
+      job.onerror = () => { if (utterance === job) setVoice(false, '晓晓播放失败 · 点击重试'); };
+      utterance = job;
+      synth.speak(job);
+    } catch {
+      if (generation === voiceGeneration) setVoice(false, '晓晓播放失败 · 点击重试');
+    }
   }
   function setPerson() {
     const id = $('guide-select').value;

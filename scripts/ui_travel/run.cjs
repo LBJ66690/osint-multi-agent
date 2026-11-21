@@ -178,7 +178,19 @@ async function demoFlow(browser, url, errors) {
   await page.locator('#open-profile').click();
   await page.getByRole('button', {name: '跳过'}).click();
   await page.locator('#voice').click();
-  await waitText(page, '#voice', '样例模式缺少浏览器中文语音');
+  await waitText(page, '#voice', '未找到晓晓 · 请用 Edge 重试');
+  await page.evaluate(() => {
+    const voices = [
+      {name: 'Microsoft Huihui', lang: 'zh-CN'},
+      {name: 'Microsoft Xiaoxiao Online (Natural)', lang: 'zh-CN', localService: false},
+    ];
+    window.speechSynthesis.getVoices = () => voices;
+    window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+    window.speechSynthesis.speak = job => { window.testSpokenVoice = job.voice.name; };
+  });
+  await page.locator('#voice').click();
+  assert.equal(await page.evaluate(() => window.testSpokenVoice), 'Microsoft Xiaoxiao Online (Natural)');
+  await page.locator('#voice').click();
   await waitText(page,'#weather','铜仁 · 天气待查');
   await page.locator('#motion').click();
   assert.equal(await page.locator('#motion').getAttribute('aria-pressed'), 'true');

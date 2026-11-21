@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import hashlib
 import json
@@ -97,8 +98,10 @@ DEFAULT_MODEL: str = _configured_model if _configured_model in BAILIAN_MODEL_IDS
 # 业务空间 ID（可选）
 WORKSPACE_ID: str = os.getenv("WORKSPACE_ID", "").strip()
 
-# 百炼 OpenAI 兼容端点（无需业务空间）
-BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+# The workspace endpoint from the Bailian CSV is optional for Beijing keys.
+BASE_URL = os.getenv("DASHSCOPE_BASE_URL", "").strip().rstrip("/") or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+if not re.fullmatch(r"https://(?:dashscope\.aliyuncs\.com|[a-z0-9-]+\.cn-beijing\.maas\.aliyuncs\.com)/compatible-mode/v1", BASE_URL):
+    raise ValueError("DASHSCOPE_BASE_URL 需要使用百炼北京地域的 HTTPS 兼容端点。")
 
 # 百炼官方 MCP：联网搜索（Streamable HTTP）。需先在百炼 MCP 广场开通 WebSearch
 WEBSEARCH_MCP_URL = "https://dashscope.aliyuncs.com/api/v1/mcps/WebSearch/mcp"
