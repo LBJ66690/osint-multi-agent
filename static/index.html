@@ -18,7 +18,7 @@
     <nav aria-label="页面导航">
       <a href="#discover">找景点</a><a href="#planner">规划行程</a><a href="#history">旅行记录</a>
     </nav>
-    <a id="account-entry" class="button" href="/login">登录</a>
+    <span id="top-credits" aria-live="polite"></span><a id="account-entry" class="button" href="/login">登录</a>
     <a class="workbench" href="/?workspace=research">通用研究工作台 ↗</a>
   </div></header>
   <main class="wrap">
@@ -46,7 +46,7 @@
           <div id="online-map" aria-hidden="true" class="loading-map" hidden></div>
           <div class="schematic" id="schematic">
             <canvas id="region-map" aria-hidden="true"></canvas>
-            <div id="region-labels" aria-hidden="true"></div>
+            <div id="region-labels" role="group" aria-label="选择市州地图"></div>
             <div id="map-points" role="group" aria-label="贵州地图景点"></div>
             <span class="map-north" aria-hidden="true">↑ 北</span>
             <p id="atlas-error" role="status" hidden>区划地图暂不可用，请点选景点照片。</p>
@@ -87,12 +87,14 @@
             <label for="task">旅行需求</label>
             <textarea id="task" rows="3" maxlength="4000" placeholder="例如：从贵阳出发，去梵净山玩三天"></textarea>
             <div class="fields">
-              <label>出发地<input id="origin" maxlength="80" placeholder="贵阳"></label>
-              <label>人数<input id="travelers" type="number" min="1"></label>
+              <label>出行方式<select id="travel-mode"><option value="high_speed">高铁动车</option><option value="rail">普速铁路</option><option value="air">飞机</option><option value="car">自驾</option><option value="coach">长途汽车</option><option value="tour">跟团游</option></select></label>
+              <label>搜索出发地<input id="origin" maxlength="80" placeholder="输入站名、城市或机场代码"></label>
+              <label>确认出发地<select id="departure" required><option value="">请选择目录中的地点</option></select></label>
+              <label>人数<select id="travelers"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
               <label>出发日<input id="start-date" type="date"></label>
               <label>返程日<input id="end-date" type="date"></label>
-              <label>预算（元）<input id="budget" type="number" min="0" step="0.01"></label>
-              <label>预算口径<select id="budget-scope"><option value="">请选择</option><option value="group">全团</option><option value="person">人均</option></select></label>
+              <label>全团预算（元）<input id="budget" type="number" min="0" step="0.01"></label>
+              <input id="budget-scope" type="hidden" value="group"><label>报告形式<select id="report-format"><option value="text">纯文本版</option><option value="cards">可视化卡片版</option></select></label>
             </div>
             <label class="check"><input id="round-trip" type="checkbox" checked> 预算含往返交通</label>
             <div class="actions"><button type="button" id="open-ticket">添加票面截图</button><span id="ticket-summary"></span></div>
@@ -117,14 +119,14 @@
     </section>
     <div class="secondary-grid">
       <section id="account" class="panel section" aria-labelledby="account-title">
-        <div class="panel-head"><h2 id="account-title">账号与额度</h2><span id="account-name"></span></div>
+        <div class="panel-head"><h2 id="account-title">个人中心</h2><a class="account-return" href="#planner">返回行程草稿</a><span id="account-name"></span></div>
         <p id="credits">正在读取账户信息…</p>
         <div class="actions"><a id="login" class="button" href="/login">登录</a><a id="register" href="/register">注册</a><button type="button" id="open-profile" hidden>旅行偏好</button><button type="button" id="open-order" hidden>模拟购买</button><button type="button" id="logout" hidden>退出登录</button></div>
-      </section>
-      <section class="panel section" id="history" aria-labelledby="history-title">
+      <p id="suggest-poi" hidden></p>
+      <section class="section" id="history" aria-labelledby="history-title">
         <div class="panel-head"><h2 id="history-title">旅行记录</h2><button type="button" id="load-history" class="text-button">刷新</button></div>
         <ul id="history-list"></ul>
-      </section>
+      </section></section>
     </div>
   </main>
   <dialog id="poi-dialog" aria-labelledby="mobile-poi-title"><div class="dialog-top"><h2 id="mobile-poi-title">景点详情</h2><button type="button" data-close>关闭</button></div><div id="mobile-poi"></div></dialog>
@@ -132,7 +134,7 @@
     <div class="dialog-top"><h2 id="profile-title">旅行偏好</h2><button type="button" data-close>关闭</button></div>
     <form id="profile-form">
       <div class="fields">
-        <label>常用出发地<input name="origin" maxlength="80"></label>
+        <label>年龄<input name="age" type="number" min="1" max="120"></label><label>性别<select name="gender"><option>不透露</option><option>女</option><option>男</option></select></label><label>意向目的地<select name="intended_region"><option value="">请选择市州</option><option>贵阳</option><option>遵义</option><option>六盘水</option><option>安顺</option><option>毕节</option><option>铜仁</option><option>黔东南</option><option>黔南</option><option>黔西南</option></select></label><label>旅行兴趣（选填）<input name="interests" maxlength="120" placeholder="例如美食、徒步"></label><label>常用出发地<input name="origin" maxlength="80"></label>
         <label>同行人数<input name="travelers" type="number" min="1"></label>
         <label>预算口径<select name="budget_scope"><option value="">未设置</option><option value="group">全团</option><option value="person">人均</option></select></label>
         <label>交通偏好<input name="transport_preference" maxlength="80"></label>

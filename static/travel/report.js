@@ -1,3 +1,4 @@
+import {renderFormat} from './cards.js';
 import {renderJourney} from './journey.js';
 import {requestId, runPath} from './api.js';
 import {$, make, openDialog, show} from './ui.js';
@@ -30,6 +31,7 @@ export function setupReport(request, catalog, demo) {
     $('report-mode').textContent=demo?'样例回放':'';
     $('guide-greet').setAttribute('aria-label','与导游互动并重听行程摘要');
     const message=renderJourney(body,detail,catalog);
+    renderFormat(body,detail);
     document.dispatchEvent(new CustomEvent('osint:view',{detail:{domain:'guizhou_travel',message,completed:true}}));
     if(demo) body.querySelector('.journey-hero p').textContent='贵州山水 · 样例回放';
     document.title='旅行报告 · 贵州山水';

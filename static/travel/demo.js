@@ -13,9 +13,8 @@ const tripPlan = {
     {date: '2026-11-21', title: '梵净山东门', activities: ['按官方预约时间从东门入园。'], evidence_ids: ['E1']},
     {date: '2026-11-22', title: '江口 → 贵阳', activities: ['预留接驳和返程时间。']},
   ],
-  budget: {known_lower_fen: 124000, upper_fen: 189000, status: 'ready',
-    lines: [{label: '往返及接驳', lower_fen: 48000, upper_fen: 72000},
-      {label: '住宿、餐费及门票', lower_fen: 76000, upper_fen: 117000}]},
+  budget: {known_lower_fen: 0, upper_fen: null, status: 'needs_confirmation',
+    lines: [{label:'实际费用',lower_fen:0,upper_fen:null}]},
   railway: {'铜仁站': [{start_train_code:'演示车次',start_date:'2026-11-20',from_station:'贵阳北',to_station:'铜仁',start_time:'08:00',arrive_time:'09:45',prices:[{seat_name:'二等座',price:149,num:'样例有票'}]}]},
   weather: [{location:'江口县',data_mode:'fixture',days:[{date:'2026-11-21',weather_code:3,temperature_2m_min:8,temperature_2m_max:16,precipitation_probability_max:35,precipitation_sum:0.4,sunrise:'2026-11-21T07:12',sunset:'2026-11-21T17:51',hours:[
     {time:'2026-11-21T12:00',temperature_2m:16,apparent_temperature:15,relative_humidity_2m:69,weather_code:3},
@@ -57,9 +56,9 @@ export function createDemo() {
   };
   function itinerary(run) {
     const plan = structuredClone(tripPlan);
-    const sample = run.trip.origin === '贵阳' && run.trip.poi_ids.join() === 'fanjingshan'
+    const sample = run.trip.departure_id === 'rail:KQW' && run.trip.poi_ids.join() === 'fanjingshan'
       && run.trip.start_date === exampleDates.start_date && run.trip.end_date === exampleDates.end_date
-      && run.trip.travelers === 1 && run.trip.budget_fen === 200000
+      && run.trip.travelers === 2 && run.trip.budget_fen === 250000
       && run.trip.budget_scope === 'group' && run.trip.include_round_trip;
     if (!sample || run.attachment_ids.length || run.trip.ticket_fields) {
       return {outcome: 'needs_confirmation', days: [], budget: {}, weather_alternatives: [],
@@ -72,7 +71,7 @@ export function createDemo() {
     return {...run, events: [...run.events], data_mode: 'fixture',
       trip_plan: run.status === 'done' ? itinerary(run) : null,
       evidence: run.status === 'done' ? evidence : [],
-      reports: run.status === 'done' ? [{type: '旅行报告'}] : [],
+      reports: run.status === 'done' ? [{type: '旅行报告',markdown:[run.task,...itinerary(run).days.flatMap(d=>[d.date,...(d.activities||[])]),...itinerary(run).unresolved].join('\n')}] : [],
     };
   }
   function creditError() {
@@ -113,6 +112,8 @@ export function createDemo() {
       return {order: {...order}, balance: {...credits}};
     }
     if (path === '/api/runs' && method === 'POST') {
+      const fixture = body.report_format==='cards' && itinerary({...body,attachment_ids:body.attachment_ids||[]}).days.length
+        ? await fetch('/static/travel/data/fanjing-cards.fixture.json').then(r=>r.json()) : null;
       const signature = JSON.stringify(body);
       const prior = requests.get(key);
       if (prior) {
@@ -120,7 +121,7 @@ export function createDemo() {
         return prior.response;
       }
       if (credits.available < 1) throw creditError();
-      const run = {id: `demo-fjs-${runs.size + 1}`, ...structuredClone(body), status: 'running', events: [], turns: [], offset: 0};
+      const run = {id: `demo-fjs-${runs.size + 1}`, ...structuredClone(body), rendered_format:fixture?'cards':'text', ...(fixture?{card_report:fixture}:{}), status: 'running', events: [], turns: [], offset: 0};
       runs.set(run.id, run);
       credits.available--;
       credits.reserved++;

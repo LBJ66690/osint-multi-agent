@@ -47,12 +47,19 @@ async function init() {
     $('demo-link').textContent = '切回服务模式';
   }
   const catalog = new Map();
+  let visitorProfile;
   let selectedForDraft;
   let selectPoi;
   let version = 0;
   let previewing = false;
   let submitting = false;
 
+  function accountView(){
+    const active=['#account','#history'].includes(location.hash) && !document.documentElement.classList.contains('journal-mode');
+    document.documentElement.classList.toggle('account-mode',active);
+  }
+  window.addEventListener('hashchange',accountView);
+  accountView();
   const sessionExpired = () => show('notice', '会话已失效，请在页面下方重新登录。');
   function invalidate() {
     version++;
@@ -60,11 +67,30 @@ async function init() {
     $('draft-preview').replaceChildren();
     show('draft-error', '');
   }
+  function suggest(){
+    const node=$('suggest-poi');
+    if(!selectPoi || !visitorProfile?.intended_region || !node)return;
+    const options=[...catalog.values()].filter(p=>p.region===visitorProfile.intended_region);
+    const interest=visitorProfile.interests?.trim();
+    const walking=visitorProfile.walking_preference||'';
+    const score=p=>{
+      const text=p.name+' '+p.description+' '+(p.category||'');
+      return (interest && text.includes(interest)?4:0) +
+        (/轻松|低强度/.test(walking) && /公园|广场|古镇|街/.test(text)?1:0) +
+        (/高强度|徒步/.test(walking) && /山|登|步道/.test(text)?1:0);
+    };
+    const poi=options.sort((a,b)=>score(b)-score(a))[0];
+    if(!poi)return;
+    node.hidden=false;
+    node.replaceChildren('按你的旅行偏好推荐：',button(poi.name,()=>{location.hash='poi-card';accountView();selectPoi(poi.poi_id);$('poi-card').scrollIntoView();}));
+  }
   const ticket = setupTicket(request, invalidate);
   const setInput = (id, value) => { $(id).value = value ?? ''; };
   const account = setupAccount(request, {
     demo, sku: travelConfig.demoOrderSku, outOfSession: sessionExpired,
     applyProfile(profile) {
+      visitorProfile=profile;
+      suggest();
       let filled = false;
       for (const key of ['origin', 'travelers', 'budget_scope']) {
         const id = fieldIds[key];
@@ -116,20 +142,48 @@ async function init() {
   const input = $('task');
   const form = $('draft-form');
 
+  const departure=$('departure');
+  let searchGeneration=0;
+  let localDirectory;
+  async function searchDepartures(){
+    const generation=++searchGeneration;
+    const mode=$('travel-mode').value, q=$('origin').value.trim();
+    departure.replaceChildren(new Option('请选择目录中的地点',''));
+    try {
+      let items;
+      if(demo){
+        localDirectory ||= fetch('/static/travel/data/departures.json').then(r=>r.json());
+        const kind={high_speed:'station',rail:'station',air:'airport',car:'city',coach:'city',tour:'city'}[mode];
+        items=(await localDirectory).items.filter(item=>item.kind===kind && [item.name,item.city,item.province,item.id].some(v=>v.toLowerCase().includes(q.toLowerCase()))).slice(0,80);
+      }else{
+        items=(await request('/api/travel/departures?'+new URLSearchParams({mode,q}))).items;
+      }
+      if(generation!==searchGeneration)return;
+      for(const row of items)departure.add(new Option([row.name,row.city,row.province,row.kind==='airport'?row.id.slice(4):''].filter(Boolean).join(' · '),row.id));
+    }catch {if(generation===searchGeneration)show('draft-error','出发地目录暂时不可用，请重新搜索。');}
+  }
+  $('origin').addEventListener('input',searchDepartures);
+  $('travel-mode').addEventListener('change',()=>{$('origin').value='';searchDepartures();});
+  void searchDepartures();
+
   function plan(poi, example = false) {
     selectedForDraft = poi.poi_id;
     $('destination-name').textContent = `已选目的地：${poi.name || '梵净山'}`;
     $('draft-destination').hidden = false;
-    input.value = example
-      ? '帮我拟一个明天从贵阳去梵净山的三天、不超过2000元的旅游计划。'
-      : `帮我拟一个明天去${poi.name}的三天、不超过 2000 元预算的旅游计划。`;
+    if (example || !input.value.trim()) input.value = example
+      ? '从贵阳北站出发，两人去梵净山三天两晚，全团预算2500元，妈妈下台阶膝盖吃力。'
+      : '计划前往'+poi.name+'，请帮我安排旅行。';
     const dates = demo ? exampleDates : getDates();
-    for (const [key, value] of Object.entries(dates)) setInput(fieldIds[key], value);
-    setInput('budget', 2000);
+    for (const [key, value] of Object.entries(dates)) if(example || !$(fieldIds[key]).value)setInput(fieldIds[key], value);
+    if(example || !$('budget').value)setInput('budget',example?2500:2000);
     if (example) {
-      setInput('origin', '贵阳');
-      setInput('travelers', 1);
+      $('travel-mode').value='high_speed';
+      setInput('origin', '贵阳北站');
+      departure.replaceChildren(new Option('贵阳北站 · 贵阳','rail:KQW',true,true));
+      ++searchGeneration;
+      setInput('travelers', 2);
       setInput('budget-scope', 'group');
+      $('report-format').value='cards';
       $('round-trip').checked = true;
     }
     invalidate();
@@ -151,7 +205,7 @@ async function init() {
     if (previewing || submitting) return;
     const task = input.value.trim();
     if (!task) return show('draft-error', '请描述旅行需求，或从地图填入草稿。');
-    const origin = $('origin').value.trim();
+    const origin = departure.selectedOptions[0]?.text.split(' · ')[0];
     const travelers = Number($('travelers').value);
     const startDate = $('start-date').value;
     const endDate = $('end-date').value;
@@ -161,6 +215,8 @@ async function init() {
     const {attachmentIds, ticketFields, pending} = ticket();
     if (pending) return show('draft-error', '请先确认识别的票面信息，或移除该截图。');
     const overrides = {timezone: 'Asia/Shanghai', include_round_trip: $('round-trip').checked};
+    overrides.travel_mode=$('travel-mode').value;
+    overrides.departure_id=departure.value;
     if (origin) overrides.origin = origin;
     if (travelers) overrides.travelers = travelers;
     if (startDate) overrides.start_date = startDate;
@@ -201,7 +257,7 @@ async function init() {
         start.disabled = $('preview').disabled = true;
         show('draft-error', '');
         try {
-          await runs.start({domain: 'guizhou_travel', task, trip, attachment_ids: attachmentIds});
+          await runs.start({domain: 'guizhou_travel', task, trip, report_format:$('report-format').value, attachment_ids: attachmentIds});
           invalidate();
         } catch (error) {
           if (error.status === 401) sessionExpired();
@@ -232,6 +288,7 @@ async function init() {
     const rows = await loadCatalog();
     for (const [id, poi] of rows) catalog.set(id, poi);
     selectPoi = drawPois(catalog, plan);
+    suggest();
     if (!demo) onlineMap(catalog, selectPoi, travelConfig);
   } catch (error) {
     $('poi-title').textContent = '景点目录暂不可用';

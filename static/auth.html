@@ -6,15 +6,17 @@
   <meta name="color-scheme" content="light">
   <title>账号登录 · 贵州山水</title>
   <link rel="stylesheet" href="/static/auth.css?v=2">
-  <script src="/static/auth.js?v=2" defer></script>
+  <script src="/static/auth.js?v=3" defer></script>
+  <script type="module" src="/static/travel/auth-gallery.js"></script>
 </head>
 <body class="auth-page">
   <main class="auth-layout">
     <section class="auth-intro" aria-labelledby="platform-title">
       <div class="auth-brand"><span class="auth-mark" aria-hidden="true">◇</span> 贵州山水</div>
-      <div>
-        <h1 id="platform-title">旅行与研究<br>工作台</h1>
-        <p>使用同一个账号规划贵州旅行、查看行程与额度，也可进入通用研究工作台。</p>
+      <div class="travel-pictures" id="travel-pictures">
+        <h1 id="platform-title">贵州山水</h1><p class="album-heading">九州实景画卷</p>
+        <figure><img id="auth-photo" alt=""><span class="panorama-mist" aria-hidden="true"></span><figcaption><strong id="auth-place">贵州风景</strong> <a id="photo-credit" target="_blank" rel="noopener noreferrer">实景来源</a></figcaption></figure>
+        <div class="picture-controls"><button id="photo-prev" type="button">上一景</button><button id="photo-play" type="button">暂停巡游</button><button id="photo-next" type="button">下一景</button><button id="photo-full" type="button">全屏赏景</button></div><div id="photo-places" class="photo-places" aria-label="选择景点"></div>
       </div>
     </section>
     <section class="auth-panel" aria-labelledby="auth-title">
@@ -30,6 +32,7 @@
         <label for="password">密码</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128">
         <p class="auth-hint" id="password-hint" hidden>使用至少 12 个字符。</p>
+        <fieldset id="visitor-fields" disabled hidden><legend>旅行偏好</legend><label>年龄<input name="age" type="number" min="1" max="120" required></label><label>性别<select name="gender" required><option>不透露</option><option>女</option><option>男</option></select></label><label>意向目的地<select name="intended_region" required><option value="">请选择市州</option><option>贵阳</option><option>遵义</option><option>六盘水</option><option>安顺</option><option>毕节</option><option>铜仁</option><option>黔东南</option><option>黔南</option><option>黔西南</option></select></label><label>旅行兴趣（选填）<input name="interests" maxlength="120" placeholder="例如美食、徒步"></label><label>步行强度（选填）<select name="walking_preference"><option value="">未设置</option><option>轻松</option><option>适中</option><option>高强度</option></select></label></fieldset>
         <div id="invite-field" hidden>
           <label for="signup-code">邀请码</label>
           <input id="signup-code" name="signup-code" type="password" autocomplete="off" maxlength="128">

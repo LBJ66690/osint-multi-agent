@@ -15,6 +15,7 @@ from argon2.exceptions import InvalidHashError, VerificationError
 from argon2.low_level import Type
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, SecretStr
+from travel_profile import VisitorProfile
 
 SESSION_HOURS = 12
 MAX_AGE = SESSION_HOURS * 3600
@@ -49,6 +50,10 @@ class Credentials(BaseModel):
     username: str
     password: SecretStr
     signup_code: SecretStr | None = None
+
+
+class Registration(Credentials):
+    profile: VisitorProfile | None = None  # Legacy research clients omit tourism fields.
 
 
 def online_enabled():
@@ -120,8 +125,17 @@ async def options(request: Request):
     return {"registration_enabled": settings.registration_enabled, "signup_code_required": bool(settings.signup_code)}
 
 
+class TravelRegistration(Credentials):
+    profile: VisitorProfile
+
+
+@router.post("/travel-register", status_code=201)
+async def register_traveler(form: TravelRegistration, request: Request, response: Response):
+    return await register(Registration(**form.model_dump()), request, response)
+
+
 @router.post("/register", status_code=201)
-async def register(form: Credentials, request: Request, response: Response):
+async def register(form: Registration, request: Request, response: Response):
     store = store_for(request)
     if not store:
         raise HTTPException(404)
@@ -140,7 +154,8 @@ async def register(form: Credentials, request: Request, response: Response):
     token, digest, expiry = new_session()
     password_hash = await asyncio.to_thread(PASSWORDS.hash, password)
     try:
-        user = await asyncio.to_thread(store.create_user, username, password_hash, digest, expiry, session_digest(request))
+        user = await asyncio.to_thread(store.create_user, username, password_hash, digest, expiry, session_digest(request),
+                                       form.profile.model_dump(exclude_none=True) if form.profile else None)
     except pymysql.IntegrityError as exc:
         if exc.args[0] != 1062:
             raise

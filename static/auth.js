@@ -59,7 +59,7 @@
   const password = document.querySelector('#password');
   const invite = document.querySelector('#signup-code');
   const registerTab = document.querySelector('#register-tab');
-  const path = registering ? '/api/auth/register' : '/api/auth/login';
+  const path = registering ? '/api/auth/travel-register' : '/api/auth/login';
   const action = registering ? '注册并进入' : '登录';
 
   const showError = message => {
@@ -68,7 +68,9 @@
   };
 
   if (registering) {
-    title.textContent = '创建工作台账号';
+    document.querySelector('#visitor-fields').hidden = false;
+    document.querySelector('#visitor-fields').disabled = false;
+    title.textContent = '创建旅行账号';
     document.title = '账号注册 · 贵州山水';
     password.autocomplete = 'new-password';
     password.minLength = 12;
@@ -107,6 +109,11 @@
     submit.textContent = registering ? '正在创建账号…' : '正在登录…';
     showError('');
     const data = {username: document.querySelector('#username').value, password: password.value};
+    if (registering) {
+      const values = new FormData(form);
+      data.profile = {age:Number(values.get('age')), gender:values.get('gender'), intended_region:values.get('intended_region'),
+        interests:values.get('interests') || null, walking_preference:values.get('walking_preference') || null};
+    }
     if (invite.required) data.signup_code = invite.value;
     try {
       await post(path, data);

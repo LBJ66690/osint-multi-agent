@@ -154,10 +154,12 @@ async function demoFlow(browser, url, errors) {
   assert.equal(await page.locator('#poi-list img').count(), 9);
   assert.equal(await page.locator('#switch-map').isVisible(), false);
   await screenshot(page, 'desktop-atlas.png', '#map-atlas');
-  const bijie = await page.locator('#region-labels .region-name').filter({hasText: /^毕节$/}).boundingBox();
-  await page.mouse.click(bijie.x + bijie.width / 2, bijie.y + bijie.height / 2);
-  await waitText(page, '#poi-title', '织金洞');
-  assert.equal(await page.locator('#poi-list [data-poi="zhijin-cave"]').getAttribute('aria-pressed'), 'true');
+  await page.getByRole('button',{name:'毕节',exact:true}).click();
+  await page.getByRole('button',{name:/进入织金平远古镇/}).click();
+  await waitText(page, '#map-title','织金平远古镇');
+  await page.locator('.street-places button').filter({hasText:'织金文庙'}).click();
+  await waitText(page, '#poi-title','织金文庙');
+  await page.getByRole('button',{name:'← 返回贵州地图'}).click();
   await page.locator('#map-points [data-poi="qingyan"]').press('Enter');
   await waitText(page, '#poi-title', '青岩古镇');
   assert.equal(await page.locator('#task').inputValue(), '');
@@ -176,6 +178,7 @@ async function demoFlow(browser, url, errors) {
   assert.equal(await page.locator('#motion').getAttribute('aria-pressed'), 'true');
   await startSample(page);
   assert.equal(await page.locator('#activity').count(), 0);
+  await page.waitForURL(url=>url.searchParams.has('run'));
   const runURL = page.url();
   const draft = await page.locator('#task').inputValue();
   await page.locator('#guide-select').selectOption('ahe');
@@ -187,6 +190,17 @@ async function demoFlow(browser, url, errors) {
   assert.equal(await page.locator('#report-mode').textContent(), '样例回放');
   assert.equal(await page.locator('#guide').getAttribute('data-action'), 'itinerary');
   assert.match(await page.locator('#report-body').textContent(), /江口县|1,890/);
+  const companion=page.locator('.scene').last();
+  await page.getByRole('button',{name:'提前折返'}).click();
+  assert.match(await companion.innerText(),/乘索道到下站/);
+  assert.match(await companion.innerText(),/400 元/);
+  for(const [choice,expected] of [['提前折返','乘索道到下站'],['继续前往蘑菇石','去蘑菇石游览']]){
+    await page.getByRole('button',{name:choice}).click();
+    const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'保存同行文本'}).click()]);
+    const saved=await fs.readFile(await download.path(),'utf8');
+    assert.ok(saved.includes(expected) && saved.includes('待报价') && saved.includes('2500 元'));
+  }
+  await page.locator('.report-evidence>summary').click();
   await page.locator('#report-body').getByText('查看依据与待确认事项', {exact: true}).last().click();
   await page.locator('#report-body').getByRole('link', {name: /E1.*梵净山/}).last().waitFor();
   assert.match(await page.locator('#report-body').getByRole('link', {name: /查看官方预约方式/}).getAttribute('href'), /fanjingshan\.gz\.cn/);
@@ -244,6 +258,9 @@ async function mobileFlow(browser, url, errors) {
   await page.locator('#guide-select').selectOption('xiaolan');
   await waitText(page, '#run-status', '已完成');
   await page.locator('#view-report').click();
+  await page.getByRole('button',{name:'提前折返'}).tap();
+  const [file]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'保存同行文本'}).tap()]);
+  assert.match(await fs.readFile(await file.path(),'utf8'),/乘索道到下站/);
   await screenshot(page, 'mobile-report.png', '#report');
   await waitWidth(page);
   await page.close();
@@ -309,7 +326,7 @@ async function liveFixtureFlow(browser, url, runtime, errors) {
   await waitText(page, '#run-status', '运行中断');
   assert.deepEqual(runtime.runs[0], runtime.runs[1]);
   assert.match(runtime.runs[0].key, /\w+/);
-  assert.equal(runtime.runs[0].body.trip.budget_fen, 200000);
+  assert.equal(runtime.runs[0].body.trip.budget_fen, 250000);
   assert.deepEqual(runtime.connections.slice(0, 2), [{last: undefined, after: '-1'}, {last: '0', after: '-1'}]);
   assert.equal(await page.evaluate(() => window.travelEffects.filter(event => event.call_id === 'q1').length), 1);
   assert.equal(await page.locator('#activity').count(), 0);
@@ -343,6 +360,7 @@ async function main() {
   try {
     browser = await chromium.launch({headless: true,
       ...(process.env.OSINT_TEST_BROWSER ? {executablePath: process.env.OSINT_TEST_BROWSER} : {})});
+    await require('./street_atlas.cjs')(browser, url);
     await demoFlow(browser, url, errors);
     assert.deepEqual(runtime.recorded, [], 'demo must not use live account, run or model APIs');
     await mobileFlow(browser, url, errors);

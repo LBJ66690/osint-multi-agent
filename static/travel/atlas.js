@@ -79,7 +79,7 @@ function move(node, [x, y]) {
   node.style.top = `${y}px`;
 }
 
-export function setupAtlas(catalog, choose) {
+export function setupAtlas(catalog, choose, openRegion) {
   const atlas = $('map-atlas');
   const surface = $('region-map');
   const schematic = $('schematic');
@@ -107,6 +107,10 @@ export function setupAtlas(catalog, choose) {
     const context = prepareCanvas(surface, width, height);
     const project = projection(boundary.bbox, width, height);
     outline = [];
+    const occupied = [...regions.values()].map(({poi,pin})=>{
+      const [x,y]=project([poi.coordinates.longitude,poi.coordinates.latitude]);
+      return [x,y,pin.offsetWidth/2+1,pin.offsetHeight/2+1];
+    });
     for (const feature of boundary.features) {
       const region = regions.get(feature.id);
       if (!region) continue;
@@ -119,7 +123,15 @@ export function setupAtlas(catalog, choose) {
       context.lineWidth = 1;
       context.lineJoin = 'round';
       context.stroke(path);
-      move(label, project(feature.properties.label));
+      const [lx,ly] = project(feature.properties.label);
+      const hw=label.offsetWidth/2, hh=label.offsetHeight/2;
+      let x=lx,y=ly;
+      for(let i=0; i<260 && occupied.some(([u,v,a,b])=>Math.abs(x-u)<hw+a && Math.abs(y-v)<hh+b); i++){
+        const radius=5*Math.sqrt(i+1);
+        x=Math.max(hw,Math.min(width-hw,lx+radius*Math.cos(i*2.4)));
+        y=Math.max(hh,Math.min(height-hh,ly+radius*Math.sin(i*2.4)));
+      }
+      occupied.push([x,y,hw+1,hh+1]);move(label,[x,y]);
       move(pin, project([poi.coordinates.longitude, poi.coordinates.latitude]));
     }
     const active = outline.find(item => item.id === selected);
@@ -176,7 +188,7 @@ export function setupAtlas(catalog, choose) {
     const region = outline.find(item => context.isPointInPath(item.path,
       event.clientX - bounds.left, event.clientY - bounds.top, 'evenodd'));
     context.restore();
-    if (region) choose(region.id);
+    if (region) openRegion(region.id);
   });
 
   async function loadBoundaries() {
@@ -188,7 +200,7 @@ export function setupAtlas(catalog, choose) {
         const region = regions.get(feature.id);
         if (!region) continue;
         const {poi} = region;
-        region.label = make('span', poi.region, 'region-name');
+        region.label = button(poi.region, () => openRegion(poi.poi_id), 'region-name');
         labels.append(region.label);
         region.pin = button('', () => choose(poi.poi_id), 'pin');
         region.pin.dataset.poi = poi.poi_id;

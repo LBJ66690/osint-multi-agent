@@ -511,5 +511,1450 @@
       "verified_at": "2026-11-19"
     },
     "reviewed_at": "2026-11-19"
+  },
+  {
+    "poi_id": "osm-way-511605339",
+    "parent_id": null,
+    "region_id": "qingyan",
+    "street_id": "huaxi",
+    "name": "花溪公园",
+    "region": "贵阳",
+    "county": "花溪区",
+    "category": "游览景点",
+    "address": "花溪区 · 花溪公园（按地图定位）",
+    "coordinates": {
+      "longitude": 106.669283,
+      "latitude": 26.437022,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "花溪区 · 花溪公园（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/511605339"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1266515694",
+    "parent_id": null,
+    "region_id": "qingyan",
+    "street_id": "huaxi",
+    "name": "花溪湖",
+    "region": "贵阳",
+    "county": "花溪区",
+    "category": "游览景点",
+    "address": "花溪区 · 花溪湖（按地图定位）",
+    "coordinates": {
+      "longitude": 106.66402,
+      "latitude": 26.423063,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "花溪区 · 花溪湖（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1266515694"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1266515693",
+    "parent_id": null,
+    "region_id": "qingyan",
+    "street_id": "huaxi",
+    "name": "贵州大学花溪校区",
+    "region": "贵阳",
+    "county": "花溪区",
+    "category": "街区地标",
+    "address": "花溪区 · 贵州大学花溪校区（按地图定位）",
+    "coordinates": {
+      "longitude": 106.668492,
+      "latitude": 26.426464,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "花溪区 · 贵州大学花溪校区（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1266515693"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1266515686",
+    "parent_id": null,
+    "region_id": "qingyan",
+    "street_id": "huaxi",
+    "name": "花溪迎宾馆",
+    "region": "贵阳",
+    "county": "花溪区",
+    "category": "街区地标",
+    "address": "花溪区 · 花溪迎宾馆（按地图定位）",
+    "coordinates": {
+      "longitude": 106.653106,
+      "latitude": 26.43443,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "花溪区 · 花溪迎宾馆（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1266515686"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1226711982",
+    "parent_id": null,
+    "region_id": "qingyan",
+    "street_id": "huaxi",
+    "name": "溪北路",
+    "region": "贵阳",
+    "county": "花溪区",
+    "category": "交通地标",
+    "address": "花溪区 · 溪北路（按地图定位）",
+    "coordinates": {
+      "longitude": 106.667939,
+      "latitude": 26.439466,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "花溪区 · 溪北路（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1226711982"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1226853077",
+    "parent_id": null,
+    "region_id": "qingyan",
+    "street_id": "huaxi",
+    "name": "花石路",
+    "region": "贵阳",
+    "county": "花溪区",
+    "category": "交通地标",
+    "address": "花溪区 · 花石路（按地图定位）",
+    "coordinates": {
+      "longitude": 106.65976,
+      "latitude": 26.439477,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "花溪区 · 花石路（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1226853077"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-4753892976",
+    "parent_id": null,
+    "region_id": "chishui-danxia",
+    "street_id": "zunyi",
+    "name": "遵义会议会址",
+    "region": "遵义",
+    "county": "红花岗区",
+    "category": "游览景点",
+    "address": "红花岗区 · 遵义会议会址（按地图定位）",
+    "coordinates": {
+      "longitude": 106.914523,
+      "latitude": 27.692012,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "红花岗区 · 遵义会议会址（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/4753892976"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1161108607",
+    "parent_id": null,
+    "region_id": "chishui-danxia",
+    "street_id": "zunyi",
+    "name": "遵义会议纪念馆",
+    "region": "遵义",
+    "county": "红花岗区",
+    "category": "游览景点",
+    "address": "红花岗区 · 遵义会议纪念馆（按地图定位）",
+    "coordinates": {
+      "longitude": 106.917235,
+      "latitude": 27.692187,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "红花岗区 · 遵义会议纪念馆（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1161108607"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1161108608",
+    "parent_id": null,
+    "region_id": "chishui-danxia",
+    "street_id": "zunyi",
+    "name": "红军总政治部旧址",
+    "region": "遵义",
+    "county": "红花岗区",
+    "category": "游览景点",
+    "address": "红花岗区 · 红军总政治部旧址（按地图定位）",
+    "coordinates": {
+      "longitude": 106.917744,
+      "latitude": 27.693402,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "红花岗区 · 红军总政治部旧址（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1161108608"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-330496212",
+    "parent_id": null,
+    "region_id": "chishui-danxia",
+    "street_id": "zunyi",
+    "name": "遵义公园",
+    "region": "遵义",
+    "county": "红花岗区",
+    "category": "游览景点",
+    "address": "遵义市公园路65",
+    "coordinates": {
+      "longitude": 106.918724,
+      "latitude": 27.694713,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "遵义市公园路65",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/330496212"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-3424797833",
+    "parent_id": null,
+    "region_id": "chishui-danxia",
+    "street_id": "zunyi",
+    "name": "凤凰山文化广场",
+    "region": "遵义",
+    "county": "红花岗区",
+    "category": "街区地标",
+    "address": "红花岗区 · 凤凰山文化广场（按地图定位）",
+    "coordinates": {
+      "longitude": 106.918579,
+      "latitude": 27.697412,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "红花岗区 · 凤凰山文化广场（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/3424797833"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1351186996",
+    "parent_id": null,
+    "region_id": "wumeng-grassland",
+    "street_id": "shuicheng",
+    "name": "贵州三线建设博物馆",
+    "region": "六盘水",
+    "county": "钟山区",
+    "category": "游览景点",
+    "address": "钟山区 · 贵州三线建设博物馆（按地图定位）",
+    "coordinates": {
+      "longitude": 104.875249,
+      "latitude": 26.578215,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "钟山区 · 贵州三线建设博物馆（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1351186996"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1351186998",
+    "parent_id": null,
+    "region_id": "wumeng-grassland",
+    "street_id": "shuicheng",
+    "name": "水城门",
+    "region": "六盘水",
+    "county": "钟山区",
+    "category": "游览景点",
+    "address": "钟山区 · 水城门（按地图定位）",
+    "coordinates": {
+      "longitude": 104.874768,
+      "latitude": 26.57556,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "钟山区 · 水城门（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1351186998"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-709495602",
+    "parent_id": null,
+    "region_id": "wumeng-grassland",
+    "street_id": "shuicheng",
+    "name": "凤池园",
+    "region": "六盘水",
+    "county": "钟山区",
+    "category": "游览景点",
+    "address": "钟山区 · 凤池园（按地图定位）",
+    "coordinates": {
+      "longitude": 104.873813,
+      "latitude": 26.580437,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "钟山区 · 凤池园（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/709495602"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-709495603",
+    "parent_id": null,
+    "region_id": "wumeng-grassland",
+    "street_id": "shuicheng",
+    "name": "麒麟公园",
+    "region": "六盘水",
+    "county": "钟山区",
+    "category": "游览景点",
+    "address": "钟山区 · 麒麟公园（按地图定位）",
+    "coordinates": {
+      "longitude": 104.863188,
+      "latitude": 26.586888,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "钟山区 · 麒麟公园（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/709495603"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1031701427",
+    "parent_id": null,
+    "region_id": "huangguoshu",
+    "street_id": "anshun",
+    "name": "安顺文庙",
+    "region": "安顺",
+    "county": "西秀区",
+    "category": "游览景点",
+    "address": "西秀区 · 安顺文庙（按地图定位）",
+    "coordinates": {
+      "longitude": 105.932092,
+      "latitude": 26.252602,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "西秀区 · 安顺文庙（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1031701427"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1189196365",
+    "parent_id": null,
+    "region_id": "huangguoshu",
+    "street_id": "anshun",
+    "name": "安顺武庙",
+    "region": "安顺",
+    "county": "西秀区",
+    "category": "游览景点",
+    "address": "西秀区 · 安顺武庙（按地图定位）",
+    "coordinates": {
+      "longitude": 105.929719,
+      "latitude": 26.24964,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "西秀区 · 安顺武庙（按地图定位）",
+    "images": [
+      {
+        "image_id": "anshun-wumiao-2014",
+        "src": "/static/travel/assets/anshun-wumiao.webp",
+        "alt": "安顺武庙牌坊，2014 年 4 月",
+        "caption": "安顺武庙牌坊，2014 年 4 月",
+        "credit": "Zhangzhugang",
+        "license": "CC BY-SA 3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Anshun_Wumiao_2014.04.28_16-57-08.jpg",
+        "changes": "采用 960 像素缩略图并转为 WebP，网页按版式裁切。"
+      }
+    ],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1189196365"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1188132027",
+    "parent_id": null,
+    "region_id": "huangguoshu",
+    "street_id": "anshun",
+    "name": "王若飞故居",
+    "region": "安顺",
+    "county": "西秀区",
+    "category": "游览景点",
+    "address": "西秀区 · 王若飞故居（按地图定位）",
+    "coordinates": {
+      "longitude": 105.926928,
+      "latitude": 26.252336,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "西秀区 · 王若飞故居（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1188132027"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-289490112",
+    "parent_id": null,
+    "region_id": "huangguoshu",
+    "street_id": "anshun",
+    "name": "顾府街",
+    "region": "安顺",
+    "county": "西秀区",
+    "category": "游览景点",
+    "address": "西秀区 · 顾府街（按地图定位）",
+    "coordinates": {
+      "longitude": 105.933145,
+      "latitude": 26.247312,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "西秀区 · 顾府街（按地图定位）",
+    "images": [
+      {
+        "image_id": "anshun-wumiao-2014",
+        "src": "/static/travel/assets/anshun-wumiao.webp",
+        "alt": "顾府街周边 · 安顺武庙牌坊，2014 年 4 月",
+        "caption": "顾府街周边 · 安顺武庙牌坊，2014 年 4 月",
+        "credit": "Zhangzhugang",
+        "license": "CC BY-SA 3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Anshun_Wumiao_2014.04.28_16-57-08.jpg",
+        "changes": "采用 960 像素缩略图并转为 WebP，网页按版式裁切。"
+      }
+    ],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/289490112"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1186574837",
+    "parent_id": null,
+    "region_id": "huangguoshu",
+    "street_id": "anshun",
+    "name": "太和街",
+    "region": "安顺",
+    "county": "西秀区",
+    "category": "交通地标",
+    "address": "西秀区 · 太和街（按地图定位）",
+    "coordinates": {
+      "longitude": 105.934339,
+      "latitude": 26.247769,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "西秀区 · 太和街（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1186574837"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-11074861887",
+    "parent_id": null,
+    "region_id": "huangguoshu",
+    "street_id": "anshun",
+    "name": "丕敏小锅凉粉",
+    "region": "安顺",
+    "county": "西秀区",
+    "category": "餐食",
+    "address": "西秀区 · 丕敏小锅凉粉（按地图定位）",
+    "coordinates": {
+      "longitude": 105.93491,
+      "latitude": 26.248061,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "西秀区 · 丕敏小锅凉粉（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/11074861887"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1550286387",
+    "parent_id": null,
+    "region_id": "zhijin-cave",
+    "street_id": "zhijin",
+    "name": "平远古镇",
+    "region": "毕节",
+    "county": "织金县",
+    "category": "游览景点",
+    "address": "织金县 · 平远古镇（按地图定位）",
+    "coordinates": {
+      "longitude": 105.777061,
+      "latitude": 26.66156,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "织金县 · 平远古镇（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1550286387"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1548784618",
+    "parent_id": null,
+    "region_id": "zhijin-cave",
+    "street_id": "zhijin",
+    "name": "织金文庙",
+    "region": "毕节",
+    "county": "织金县",
+    "category": "游览景点",
+    "address": "织金县 · 织金文庙（按地图定位）",
+    "coordinates": {
+      "longitude": 105.774292,
+      "latitude": 26.664706,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "织金县 · 织金文庙（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1548784618"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1550286412",
+    "parent_id": null,
+    "region_id": "zhijin-cave",
+    "street_id": "zhijin",
+    "name": "文昌阁",
+    "region": "毕节",
+    "county": "织金县",
+    "category": "游览景点",
+    "address": "织金县 · 文昌阁（按地图定位）",
+    "coordinates": {
+      "longitude": 105.771209,
+      "latitude": 26.667081,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "织金县 · 文昌阁（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1550286412"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1286714328",
+    "parent_id": null,
+    "region_id": "zhijin-cave",
+    "street_id": "zhijin",
+    "name": "财神庙",
+    "region": "毕节",
+    "county": "织金县",
+    "category": "游览景点",
+    "address": "织金县 · 财神庙（按地图定位）",
+    "coordinates": {
+      "longitude": 105.768302,
+      "latitude": 26.667747,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "织金县 · 财神庙（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1286714328"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1548784608",
+    "parent_id": null,
+    "region_id": "zhijin-cave",
+    "street_id": "zhijin",
+    "name": "玉皇阁",
+    "region": "毕节",
+    "county": "织金县",
+    "category": "游览景点",
+    "address": "织金县 · 玉皇阁（按地图定位）",
+    "coordinates": {
+      "longitude": 105.77054,
+      "latitude": 26.671199,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "织金县 · 玉皇阁（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1548784608"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-12423581097",
+    "parent_id": null,
+    "region_id": "fanjingshan",
+    "street_id": "tongren",
+    "name": "中南门历史文化旅游区",
+    "region": "铜仁",
+    "county": "碧江区",
+    "category": "游览景点",
+    "address": "碧江区 · 中南门历史文化旅游区（按地图定位）",
+    "coordinates": {
+      "longitude": 109.184108,
+      "latitude": 27.717177,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "碧江区 · 中南门历史文化旅游区（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/12423581097"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-12423580951",
+    "parent_id": null,
+    "region_id": "fanjingshan",
+    "street_id": "tongren",
+    "name": "东山寺",
+    "region": "铜仁",
+    "county": "碧江区",
+    "category": "游览景点",
+    "address": "碧江区 · 东山寺（按地图定位）",
+    "coordinates": {
+      "longitude": 109.187869,
+      "latitude": 27.716984,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "碧江区 · 东山寺（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/12423580951"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-12423580986",
+    "parent_id": null,
+    "region_id": "fanjingshan",
+    "street_id": "tongren",
+    "name": "周逸群陈列馆",
+    "region": "铜仁",
+    "county": "碧江区",
+    "category": "游览景点",
+    "address": "碧江区 · 周逸群陈列馆（按地图定位）",
+    "coordinates": {
+      "longitude": 109.186237,
+      "latitude": 27.718289,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "碧江区 · 周逸群陈列馆（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/12423580986"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-12573551362",
+    "parent_id": null,
+    "region_id": "fanjingshan",
+    "street_id": "tongren",
+    "name": "铜仁博物馆",
+    "region": "铜仁",
+    "county": "碧江区",
+    "category": "游览景点",
+    "address": "碧江区 · 铜仁博物馆（按地图定位）",
+    "coordinates": {
+      "longitude": 109.182981,
+      "latitude": 27.716008,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "碧江区 · 铜仁博物馆（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/12573551362"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-510242628",
+    "parent_id": null,
+    "region_id": "fanjingshan",
+    "street_id": "tongren",
+    "name": "中南门街",
+    "region": "铜仁",
+    "county": "碧江区",
+    "category": "交通地标",
+    "address": "碧江区 · 中南门街（按地图定位）",
+    "coordinates": {
+      "longitude": 109.186088,
+      "latitude": 27.718122,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "碧江区 · 中南门街（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/510242628"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-4546339893",
+    "parent_id": null,
+    "region_id": "xijiang-miao-village",
+    "street_id": "zhenyuan",
+    "name": "镇远古城",
+    "region": "黔东南",
+    "county": "镇远县",
+    "category": "游览景点",
+    "address": "镇远县 · 镇远古城（按地图定位）",
+    "coordinates": {
+      "longitude": 108.427939,
+      "latitude": 27.050746,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "镇远县 · 镇远古城（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/4546339893"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-9037543309",
+    "parent_id": null,
+    "region_id": "xijiang-miao-village",
+    "street_id": "zhenyuan",
+    "name": "祝圣桥",
+    "region": "黔东南",
+    "county": "镇远县",
+    "category": "游览景点",
+    "address": "镇远县 · 祝圣桥（按地图定位）",
+    "coordinates": {
+      "longitude": 108.427963,
+      "latitude": 27.053805,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "镇远县 · 祝圣桥（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/9037543309"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1030459688",
+    "parent_id": null,
+    "region_id": "xijiang-miao-village",
+    "street_id": "zhenyuan",
+    "name": "青龙洞",
+    "region": "黔东南",
+    "county": "镇远县",
+    "category": "游览景点",
+    "address": "镇远县 · 青龙洞（按地图定位）",
+    "coordinates": {
+      "longitude": 108.428651,
+      "latitude": 27.053047,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "镇远县 · 青龙洞（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1030459688"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1389564768",
+    "parent_id": null,
+    "region_id": "xijiang-miao-village",
+    "street_id": "zhenyuan",
+    "name": "石屏山",
+    "region": "黔东南",
+    "county": "镇远县",
+    "category": "游览景点",
+    "address": "镇远县 · 石屏山（按地图定位）",
+    "coordinates": {
+      "longitude": 108.421623,
+      "latitude": 27.055311,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "镇远县 · 石屏山（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1389564768"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-5237545522",
+    "parent_id": null,
+    "region_id": "xijiang-miao-village",
+    "street_id": "zhenyuan",
+    "name": "四官殿",
+    "region": "黔东南",
+    "county": "镇远县",
+    "category": "街区地标",
+    "address": "镇远县 · 四官殿（按地图定位）",
+    "coordinates": {
+      "longitude": 108.421574,
+      "latitude": 27.054781,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "镇远县 · 四官殿（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/5237545522"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-14348047802",
+    "parent_id": null,
+    "region_id": "libo-xiaoqikong",
+    "street_id": "libo",
+    "name": "荔波古镇",
+    "region": "黔南",
+    "county": "荔波县",
+    "category": "游览景点",
+    "address": "荔波县 · 荔波古镇（按地图定位）",
+    "coordinates": {
+      "longitude": 107.888595,
+      "latitude": 25.412732,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "荔波县 · 荔波古镇（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/14348047802"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1207737714",
+    "parent_id": null,
+    "region_id": "libo-xiaoqikong",
+    "street_id": "libo",
+    "name": "人民广场",
+    "region": "黔南",
+    "county": "荔波县",
+    "category": "游览景点",
+    "address": "荔波县 · 人民广场（按地图定位）",
+    "coordinates": {
+      "longitude": 107.874955,
+      "latitude": 25.412591,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "荔波县 · 人民广场（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1207737714"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-1171519509",
+    "parent_id": null,
+    "region_id": "libo-xiaoqikong",
+    "street_id": "libo",
+    "name": "邓恩铭故居",
+    "region": "黔南",
+    "county": "荔波县",
+    "category": "游览景点",
+    "address": "荔波县 · 邓恩铭故居（按地图定位）",
+    "coordinates": {
+      "longitude": 107.881243,
+      "latitude": 25.416657,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "荔波县 · 邓恩铭故居（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/1171519509"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-591636881",
+    "parent_id": null,
+    "region_id": "libo-xiaoqikong",
+    "street_id": "libo",
+    "name": "红船广场",
+    "region": "黔南",
+    "county": "荔波县",
+    "category": "游览景点",
+    "address": "荔波县 · 红船广场（按地图定位）",
+    "coordinates": {
+      "longitude": 107.892477,
+      "latitude": 25.426574,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "荔波县 · 红船广场（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/591636881"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-9319168876",
+    "parent_id": null,
+    "region_id": "libo-xiaoqikong",
+    "street_id": "libo",
+    "name": "邓恩铭雕像",
+    "region": "黔南",
+    "county": "荔波县",
+    "category": "街区地标",
+    "address": "荔波县 · 邓恩铭雕像（按地图定位）",
+    "coordinates": {
+      "longitude": 107.881454,
+      "latitude": 25.41139,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "荔波县 · 邓恩铭雕像（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/9319168876"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-7714092143",
+    "parent_id": null,
+    "region_id": "wanfenglin",
+    "street_id": "nahui",
+    "name": "第八观景台",
+    "region": "黔西南",
+    "county": "兴义市",
+    "category": "游览景点",
+    "address": "兴义市 · 第八观景台（按地图定位）",
+    "coordinates": {
+      "longitude": 104.931171,
+      "latitude": 24.963772,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "兴义市 · 第八观景台（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/7714092143"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-437575530",
+    "parent_id": null,
+    "region_id": "wanfenglin",
+    "street_id": "nahui",
+    "name": "纳灰河",
+    "region": "黔西南",
+    "county": "兴义市",
+    "category": "河湖",
+    "address": "兴义市 · 纳灰河（按地图定位）",
+    "coordinates": {
+      "longitude": 104.92968,
+      "latitude": 24.963106,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "兴义市 · 纳灰河（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/437575530"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-826201223",
+    "parent_id": null,
+    "region_id": "wanfenglin",
+    "street_id": "nahui",
+    "name": "峰林西路",
+    "region": "黔西南",
+    "county": "兴义市",
+    "category": "交通地标",
+    "address": "兴义市 · 峰林西路（按地图定位）",
+    "coordinates": {
+      "longitude": 104.928108,
+      "latitude": 24.961868,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "兴义市 · 峰林西路（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/826201223"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-way-857391147",
+    "parent_id": null,
+    "region_id": "wanfenglin",
+    "street_id": "nahui",
+    "name": "万峰林观光车道",
+    "region": "黔西南",
+    "county": "兴义市",
+    "category": "交通地标",
+    "address": "兴义市 · 万峰林观光车道（按地图定位）",
+    "coordinates": {
+      "longitude": 104.930682,
+      "latitude": 24.969947,
+      "system": "WGS84",
+      "precision": "mapped_feature"
+    },
+    "description": "兴义市 · 万峰林观光车道（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/way/857391147"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-5113961660",
+    "parent_id": null,
+    "region_id": "wanfenglin",
+    "street_id": "nahui",
+    "name": "八卦田观景点",
+    "region": "黔西南",
+    "county": "兴义市",
+    "category": "游览景点",
+    "address": "兴义市 · 八卦田观景点（按地图定位）",
+    "coordinates": {
+      "longitude": 104.924259,
+      "latitude": 24.985416,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "兴义市 · 八卦田观景点（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/5113961660"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-7714092128",
+    "parent_id": null,
+    "region_id": "wanfenglin",
+    "street_id": "nahui",
+    "name": "落水洞",
+    "region": "黔西南",
+    "county": "兴义市",
+    "category": "街区地标",
+    "address": "兴义市 · 落水洞（按地图定位）",
+    "coordinates": {
+      "longitude": 104.933907,
+      "latitude": 24.952435,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "兴义市 · 落水洞（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/7714092128"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-12500627057",
+    "parent_id": null,
+    "region_id": "wumeng-grassland",
+    "street_id": "shuicheng",
+    "name": "水城古镇西",
+    "region": "六盘水",
+    "county": "钟山区",
+    "category": "交通地标",
+    "address": "钟山区 · 水城古镇西（按地图定位）",
+    "coordinates": {
+      "longitude": 104.873475,
+      "latitude": 26.577572,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "钟山区 · 水城古镇西（按地图定位）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 地点资料",
+        "url": "https://www.openstreetmap.org/node/12500627057"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
+  },
+  {
+    "poi_id": "osm-node-7714091881",
+    "parent_id": null,
+    "region_id": "wanfenglin",
+    "street_id": "nahui",
+    "name": "下纳灰村",
+    "region": "黔西南",
+    "county": "兴义市",
+    "category": "村寨",
+    "address": "兴义市 · 下纳灰村（OSM 村庄定位点）",
+    "coordinates": {
+      "longitude": 104.9230385,
+      "latitude": 24.9736486,
+      "system": "WGS84",
+      "precision": "mapped_node"
+    },
+    "description": "兴义市 · 下纳灰村（OSM 村庄定位点）",
+    "images": [],
+    "sources": [
+      {
+        "title": "OpenStreetMap 村庄定位",
+        "url": "https://www.openstreetmap.org/node/7714091881"
+      }
+    ],
+    "booking": {
+      "type": "unknown"
+    },
+    "reviewed_at": "2026-11-21"
   }
 ]

@@ -16,6 +16,7 @@ export function setupAccount(request, {demo, sku, applyProfile, outOfSession}) {
   }
   function showBalance(data) {
     const balance = data?.balance || data;
+    $('top-credits').textContent=balance?.unlimited?'不限次数':Number.isInteger(balance?.available)?'可用 '+balance.available+' 次':'';
     if(balance?.unlimited){$('credits').textContent='测试管理员 · 不限次数';return;}
     const available = balance?.available;
     const reserved = balance?.reserved;
@@ -86,6 +87,7 @@ export function setupAccount(request, {demo, sku, applyProfile, outOfSession}) {
     const submit = form.querySelector('button.primary');
     if (submit.disabled) return;
     const body = Object.fromEntries(new FormData(form));
+    body.age = body.age ? Number(body.age) : null;
     body.travelers = body.travelers ? Number(body.travelers) : null;
     for (const key of Object.keys(body)) if (typeof body[key] === 'string') body[key] = body[key].trim() || null;
     submit.disabled = true;

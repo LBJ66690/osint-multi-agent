@@ -80,7 +80,7 @@ app = FastAPI(title="开源情报多智能体平台", version="2.5", lifespan=li
 app.include_router(web_auth.router)
 app.include_router(travel_api.router)
 
-PUBLIC_API = {"/api/health", "/api/auth/options", "/api/auth/register", "/api/auth/login", "/api/auth/logout"}
+PUBLIC_API = {"/api/health", "/api/auth/options", "/api/auth/register", "/api/auth/travel-register", "/api/auth/login", "/api/auth/logout"}
 
 
 @app.exception_handler(RequestValidationError)
@@ -208,6 +208,10 @@ class RunState:
         return {
             **self.to_summary(),
             **({k:self.summary.get(k) for k in ("trip_plan","evidence","domain","data_mode")} if self.travel else {}),
+            **({"report_format": self.travel["report_format"],
+                "rendered_format": "cards" if self.summary.get("card_report") else "text",
+                **({"card_report": self.summary["card_report"]} if self.summary.get("card_report") else {})}
+               if self.travel and "report_format" in self.travel else {}),
             "events": self.events,
             "summary": self.summary,
             "reports": self.reports,
@@ -657,6 +661,7 @@ async def model_recommendation(task: str = "", execution_mode: Literal["auto", "
 
 
 class RunRequest(BaseModel):
+    report_format: Literal['text', 'cards'] = 'text'
     domain: Optional[Literal["guizhou_travel"]] = None
     trip: Optional[travel_api.Trip] = None
     attachment_ids: list[str] = Field(default_factory=list,max_length=8)
@@ -693,7 +698,10 @@ async def create_run(req: RunRequest, request: Request = None):
     try:
         model_id = config.resolve_model(req.model_id)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if req.domain == "guizhou_travel" and not req.model_id:
+            model_id = config.DEFAULT_MODEL  # Tracking field for deterministic text fallback.
+        else:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     state = RunState(task, model_id, auto_confirm=req.auto_confirm,
                      role_models=validated_roles(req.role_models, choose_policy(task, req.execution_mode).mode), execution_mode=req.execution_mode)
     state.role_overrides = req.role_models
@@ -707,6 +715,8 @@ async def create_run(req: RunRequest, request: Request = None):
         if not 1<=len(key.encode())<=128:
             raise HTTPException(422,"需要有效的 Idempotency-Key")
         state.travel={"trip":req.trip.model_dump(mode="json",exclude_none=True),"attachment_ids":req.attachment_ids}
+        if 'report_format' in req.model_fields_set:
+            state.travel['report_format'] = req.report_format
         fingerprint=hashlib.sha256(json.dumps([task,state.travel],sort_keys=True).encode()).hexdigest()
         state.summary={"domain":"guizhou_travel","request_key":key,"fingerprint":fingerprint}
         if store:

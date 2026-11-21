@@ -1,0 +1,198 @@
+{
+  "version": "2026-11-21",
+  "license": "ODbL 1.0",
+  "source": "OpenStreetMap contributors",
+  "districts": [
+    {
+      "id": "huaxi",
+      "region_id": "qingyan",
+      "region": "贵阳",
+      "name": "花溪十字街",
+      "poi_ids": [
+        "osm-way-511605339",
+        "osm-way-1266515694",
+        "osm-way-1266515693",
+        "osm-way-1266515686",
+        "osm-way-1226711982",
+        "osm-way-1226853077"
+      ],
+      "image": "/static/travel/assets/streets/huaxi.webp",
+      "attraction_ids": [
+        "qingyan",
+        "osm-way-511605339",
+        "osm-way-1266515694"
+      ]
+    },
+    {
+      "id": "zunyi",
+      "region_id": "chishui-danxia",
+      "region": "遵义",
+      "name": "老城会址周边",
+      "poi_ids": [
+        "osm-node-4753892976",
+        "osm-way-1161108607",
+        "osm-way-1161108608",
+        "osm-way-330496212",
+        "osm-node-3424797833"
+      ],
+      "image": "/static/travel/assets/streets/zunyi.webp",
+      "attraction_ids": [
+        "chishui-danxia",
+        "osm-node-4753892976",
+        "osm-way-1161108607",
+        "osm-way-1161108608",
+        "osm-way-330496212"
+      ]
+    },
+    {
+      "id": "shuicheng",
+      "region_id": "wumeng-grassland",
+      "region": "六盘水",
+      "name": "水城古镇",
+      "poi_ids": [
+        "osm-way-1351186996",
+        "osm-way-1351186998",
+        "osm-way-709495602",
+        "osm-way-709495603",
+        "osm-node-12500627057"
+      ],
+      "image": "/static/travel/assets/streets/shuicheng.webp",
+      "attraction_ids": [
+        "wumeng-grassland",
+        "osm-way-1351186996",
+        "osm-way-1351186998",
+        "osm-way-709495602",
+        "osm-way-709495603"
+      ]
+    },
+    {
+      "id": "anshun",
+      "region_id": "huangguoshu",
+      "region": "安顺",
+      "name": "顾府街",
+      "poi_ids": [
+        "osm-way-1031701427",
+        "osm-way-1189196365",
+        "osm-way-1188132027",
+        "osm-way-289490112",
+        "osm-way-1186574837",
+        "osm-node-11074861887"
+      ],
+      "image": "/static/travel/assets/streets/anshun.webp",
+      "attraction_ids": [
+        "huangguoshu",
+        "osm-way-1031701427",
+        "osm-way-1189196365",
+        "osm-way-1188132027",
+        "osm-way-289490112"
+      ]
+    },
+    {
+      "id": "zhijin",
+      "region_id": "zhijin-cave",
+      "region": "毕节",
+      "name": "织金平远古镇",
+      "poi_ids": [
+        "osm-way-1550286387",
+        "osm-way-1548784618",
+        "osm-way-1550286412",
+        "osm-way-1286714328",
+        "osm-way-1548784608"
+      ],
+      "image": "/static/travel/assets/streets/zhijin.webp",
+      "attraction_ids": [
+        "zhijin-cave",
+        "osm-way-1550286387",
+        "osm-way-1548784618",
+        "osm-way-1550286412",
+        "osm-way-1286714328",
+        "osm-way-1548784608"
+      ]
+    },
+    {
+      "id": "tongren",
+      "region_id": "fanjingshan",
+      "region": "铜仁",
+      "name": "中南门古城",
+      "poi_ids": [
+        "osm-node-12423581097",
+        "osm-node-12423580951",
+        "osm-node-12423580986",
+        "osm-node-12573551362",
+        "osm-way-510242628"
+      ],
+      "image": "/static/travel/assets/streets/tongren.webp",
+      "attraction_ids": [
+        "fanjingshan",
+        "osm-node-12423581097",
+        "osm-node-12423580951",
+        "osm-node-12423580986",
+        "osm-node-12573551362"
+      ]
+    },
+    {
+      "id": "zhenyuan",
+      "region_id": "xijiang-miao-village",
+      "region": "黔东南",
+      "name": "镇远古城",
+      "poi_ids": [
+        "osm-node-4546339893",
+        "osm-node-9037543309",
+        "osm-way-1030459688",
+        "osm-way-1389564768",
+        "osm-node-5237545522"
+      ],
+      "image": "/static/travel/assets/streets/zhenyuan.webp",
+      "attraction_ids": [
+        "xijiang-miao-village",
+        "osm-node-4546339893",
+        "osm-node-9037543309",
+        "osm-way-1030459688",
+        "osm-way-1389564768"
+      ]
+    },
+    {
+      "id": "libo",
+      "region_id": "libo-xiaoqikong",
+      "region": "黔南",
+      "name": "荔波古镇",
+      "poi_ids": [
+        "osm-node-14348047802",
+        "osm-way-1207737714",
+        "osm-way-1171519509",
+        "osm-way-591636881",
+        "osm-node-9319168876"
+      ],
+      "image": "/static/travel/assets/streets/libo.webp",
+      "attraction_ids": [
+        "libo-xiaoqikong",
+        "osm-node-14348047802",
+        "osm-way-1207737714",
+        "osm-way-1171519509",
+        "osm-way-591636881"
+      ]
+    },
+    {
+      "id": "nahui",
+      "region_id": "wanfenglin",
+      "region": "黔西南",
+      "name": "万峰林下纳灰",
+      "poi_ids": [
+        "osm-node-7714092143",
+        "osm-way-437575530",
+        "osm-way-826201223",
+        "osm-way-857391147",
+        "osm-node-5113961660",
+        "osm-node-7714092128",
+        "osm-node-7714091881"
+      ],
+      "image": "/static/travel/assets/streets/nahui.webp",
+      "attraction_ids": [
+        "wanfenglin",
+        "osm-node-7714092143",
+        "osm-node-5113961660",
+        "osm-node-7714091881"
+      ]
+    }
+  ]
+}

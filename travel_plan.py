@@ -8,6 +8,7 @@ import os
 import httpx
 
 import config
+import travel_cards
 import pipeline
 from travel_constraints import arrival_constraint,quote_lines
 from travel_tools import CHINA, ROOT, catalog, forecast, route, rail, flight
@@ -75,6 +76,17 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
                "model_id":state.model_id,"domain":"guizhou_travel","travel":request,"skill_versions":versions}
         if state.store:
             await asyncio.to_thread(state.store.save_checkpoint,state.id,value)
+        elif "card_generation" in value:
+            # The general local checkpoint helper logs and swallows write errors.
+            # A model attempt requires a confirmed durable write.
+            path = pipeline.get_checkpoint_path(state.id)
+            snapshot = json.dumps(config.redact_data(value), ensure_ascii=False)
+            write = asyncio.create_task(asyncio.to_thread(pipeline._write_checkpoint, path, snapshot))
+            try:
+                await asyncio.shield(write)
+            except asyncio.CancelledError:
+                await write
+                raise
         else:
             await pipeline.save_checkpoint(state.id,value)
     async def query(tool,identity,factory):
@@ -102,6 +114,12 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
         await emit({**base,"type":"tool_result","data_mode":mode,"message":"已取得 "+tool+" 数据","evidence_ids":[eid]})
         return snapshots[key]["value"],eid
 
+    if state.summary.get("card_generation") and state.summary.get("report_records"):
+        # The written text and its evidence are one snapshot. Do not replan it on recovery.
+        if state.summary["card_generation"]["status"] == "attempted":
+            state.summary["card_generation"].update(status="text", error="interrupted")
+        await checkpoint("done")
+        return state.summary
     await checkpoint("running")
     days=[{"date":(start+timedelta(days=i)).isoformat(),"title":"待安排","activities":[],"evidence_ids":[]}
           for i in range((end-start).days+1)]
@@ -119,25 +137,77 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
     options=[]
     railway={}
     forecasts=[]
-    if not (trip.get("ticket_fields") or {}).get("arrival_station") and trip.get("origin") in ("贵阳","贵阳北","贵阳北站") and any(p.startswith("fanjingshan") for p in requested):
-        station="铜仁站"
-        missing.append("铜仁站与铜仁南站为候选，到达站和余票需确认")
-        for dest in ("铜仁站","铜仁南站"):
-            train,eid=await query("rail.search",["贵阳北",dest,str(start)],lambda:rail("贵阳北",dest,str(start)))
+    travel_mode = trip.get("travel_mode")
+    regions = {cards[p]["region"] for p in requested if cards.get(p, {}).get("region")}
+    gateways = {"贵阳":"贵阳北站","遵义":"遵义站","六盘水":"六盘水站","安顺":"安顺西站","毕节":"毕节站",
+                "铜仁":"铜仁站","黔东南":"凯里南站","黔南":"都匀东站","黔西南":"兴义站"}
+    fanjing = any(p.startswith("fanjingshan") for p in requested)
+    has_ticket = bool((trip.get("ticket_fields") or {}).get("arrival_station"))
+    legacy_rail = not travel_mode and fanjing and trip.get("origin") in ("贵阳","贵阳北","贵阳北站")
+    if not has_ticket and (travel_mode in ("high_speed","rail") or legacy_rail):
+        origin = trip["origin"] if travel_mode else "贵阳北"
+        destinations = [gateways[r] for r in sorted(regions) if r in gateways]
+        if "铜仁站" in destinations:
+            destinations.append("铜仁南站")
+        if destinations:
+            station = destinations[0]
+        missing.append("到达站为候选，请核对与实际入口的接驳和车票余量")
+        for dest in destinations:
+            async def tickets():
+                data = await rail(origin, dest, str(start))
+                if travel_mode:
+                    def category(row):
+                        prefix = (row.get("start_train_code") or "")[:1]
+                        if prefix in ("G", "D", "C"):
+                            return "high_speed"
+                        if prefix in ("K", "T", "Z", "Y") or prefix.isdigit():
+                            return "rail"
+                        return None
+                    data = {**data, "unclassified_count": sum(category(row) is None for row in data["trains"]),
+                            "trains": [row for row in data["trains"] if category(row) == travel_mode]}
+                return data
+            train,eid=await query("rail.search",[origin,dest,str(start),travel_mode],tickets)
             if train:
                 railway[dest]=train["trains"]
-                if not train["trains"]: missing.append("贵阳北至"+dest+"未查到可选直达列车")
+                if not train["trains"]: missing.append(origin+"至"+dest+"未查到符合出行方式的直达列车")
+                if train.get("unclassified_count"): missing.append("部分班次类别待确认")
+                for t in train["trains"]:
+                    if not all(t.get(k) for k in ("start_time","arrive_time","arrive_date")):
+                        missing.append("部分列车到发时间待确认")
+                        break
                 days[0]["evidence_ids"].append(eid)
-    airport={"北京":"BJS","上海":"SHA","广州":"CAN","深圳":"SZX","成都":"CTU"}.get(trip.get("origin"))
-    if airport and any(word in str(trip.get("transport_preference","")) for word in ("飞机","航空","航班")):
-        await query("flight.search",[airport,"KWE",str(start)],lambda:flight(airport,"KWE",str(start)))
+    if travel_mode == "air":
+        airport = trip["departure_id"].split(":",1)[1]
+        arrive = {"贵阳":"KWE","遵义":"WMT","六盘水":"LPF","安顺":"AVA","毕节":"BFJ",
+                  "铜仁":"TEN","黔东南":"KJH","黔南":"LLB","黔西南":"ACX"}
+        for region in sorted(regions):
+            if region not in arrive:
+                continue
+            code = arrive[region]
+            await query("flight.search",[airport,code,str(start)],lambda:flight(airport,code,str(start)))
+            missing.append(region+"机场至实际入口的接驳点与时间待确认")
+    elif not travel_mode:
+        airport={"北京":"BJS","上海":"SHA","广州":"CAN","深圳":"SZX","成都":"CTU"}.get(trip.get("origin"))
+        if airport and any(word in str(trip.get("transport_preference","")) for word in ("飞机","航空","航班")):
+            await query("flight.search",[airport,"KWE",str(start)],lambda:flight(airport,"KWE",str(start)))
+    if travel_mode in ("car","coach","tour"):
+        item={"car":"实际出发点、停车入口和返程路段","coach":"实际汽车站、班次和到站接驳","tour":"实际集合点、接送时间和返程安排"}[travel_mode]
+        missing.append(f"出发城市为{trip['origin']}，{item}待核对")
     requested=list(dict.fromkeys(requested))
     for poi_id in requested:
         card=cards.get(poi_id)
         if not card:
             missing.append("请确认目的地 "+poi_id)
             continue
-        parent=cards.get(card.get("parent_id")) or card
+        parent = card if card["images"] else (cards.get(card.get("parent_id")) or card)
+        if poi_id in trip["poi_ids"] and trip.get("travel_mode"):
+            ref = next((src for src in card.get("sources", []) if src.get("url")), None)
+            if ref:
+                eid = f"E{len(evidence)+1}"
+                evidence.append({"id":eid, "title":card["name"], "source_url":ref["url"],
+                                 "source":"poi.catalog", "excerpt":card.get("description", "")})
+                days[0]["activities"].append("已选游览地点："+card["name"]+"。请结合到达时间核对开放安排。")
+                days[0]["evidence_ids"].append(eid)
         for img in parent["images"]:
             photo={"poi_id":parent["poi_id"],"image_id":img["image_id"],"caption":img["caption"]}
             if photo not in media:
@@ -160,6 +230,8 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
                     if issue: missing.append(issue)
                     elif not ticket.get("latest_entry"): missing.append("请确认预约时段并预留出站候车时间")
                 for train in railway.get(candidate,[]):
+                    if not train.get("arrive_date") or not train.get("arrive_time"):
+                        continue
                     arrival=datetime.fromisoformat(train["arrive_date"]+"T"+train["arrive_time"])+timedelta(seconds=leg["duration_s"])
                     options.append({"station":candidate,"train":train["start_train_code"],"poi_id":poi_id,
                                     "estimated_arrival":arrival.isoformat(timespec="minutes"),"evidence_ids":[eid]})
@@ -194,7 +266,8 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
                 day["evidence_ids"].append(item["id"])
                 if any(word in hit["excerpt"] for word in ("停运","闭园","关闭")):
                     missing.append(day["date"]+" 请确认公告涉及线路，选择改线或改期")
-    if config.DASHSCOPE_API_KEY:
+    if (config.DASHSCOPE_API_KEY and config.bailian_free_only_confirmed()
+            and not config.EXPERIMENT_MODE and not config.bailian_unavailable(state.model_id)):
         from agents import build_agent,run_json
         from pydantic import BaseModel,Field
         class DailyAdvice(BaseModel):
@@ -237,8 +310,10 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
     lines=["# 贵州旅行报告",state.task]
     for day in days:
         lines.extend(["## "+day["date"],*day["activities"],"依据 "+"、".join(day["evidence_ids"])])
-    lines.extend(["## 预算","已知小计 "+str(costs["known_lower_fen"]/100)+" 元；缺少上限的项目："+ "、".join(costs["missing_costs"]),
-                  "## 天气备选",*[w["date"]+" "+w["location"]+" "+w["text"] for w in alternatives],
+    lines.append("## 预算")
+    for label, amount in travel_cards.budget_rows(trip, costs):
+        lines.append(label + "：" + ("待报价" if amount is None else f"{amount:g} 元"))
+    lines.extend(["## 天气备选",*[w["date"]+" "+w["location"]+" "+w["text"] for w in alternatives],
                   "## 景点照片",*[m["caption"]+"（"+m["image_id"]+"）" for m in media],
                   "## 待查事项",*missing,"## 事实来源"])
     for item in evidence:
@@ -259,6 +334,7 @@ async def execute(state,emit,route_call=None,weather_call=None,kb_call=None):
         if ev.get("data_mode")!="cache":
             consume_event(stats,ev)
     state.summary["resource_usage"]=snapshot(stats)
+    await travel_cards.finalize(state, plan, cards, checkpoint)
     await checkpoint("done")
     await emit({"type":"report","report_type":"旅行报告","path":str(path),"markdown":markdown})
     return state.summary

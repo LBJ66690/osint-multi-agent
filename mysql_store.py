@@ -77,14 +77,14 @@ class MySQLStore:
                 WHERE r.status NOT IN ('done', 'error', 'cancelled')
             """)
 
-    def create_user(self, username, password_hash, digest, expires_at, previous_digest=None):
+    def create_user(self, username, password_hash, digest, expires_at, previous_digest=None, profile=None):
         with self.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO osint_users (username, password_hash) VALUES (%s, %s)",
                 (username, password_hash),
             )
             user_id = cursor.lastrowid
-            cursor.execute("INSERT INTO travel_accounts(owner_id) VALUES (%s)", (user_id,))
+            cursor.execute("INSERT INTO travel_accounts(owner_id,profile) VALUES (%s,%s)", (user_id,json.dumps(profile or {},ensure_ascii=False)))
             if previous_digest:
                 cursor.execute("DELETE FROM osint_sessions WHERE token_digest = %s", (previous_digest,))
             cursor.execute(

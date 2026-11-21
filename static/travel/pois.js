@@ -1,4 +1,5 @@
 import {$, booking, button, link, make, openDialog, scenic, show} from './ui.js';
+import {setupStreets} from './streets.js';
 import {setupAtlas} from './atlas.js';
 
 export async function loadCatalog() {
@@ -10,18 +11,35 @@ export async function loadCatalog() {
 
 export function drawPois(catalog, plan) {
   const mobile = matchMedia('(max-width: 760px)');
-  const syncAtlas = setupAtlas(catalog, select);
+  const openRegion = setupStreets(catalog, select);
+  const syncAtlas = setupAtlas(catalog, select, openRegion);
   function card(poi) {
     const file = poi.images[0] || catalog.get(poi.parent_id)?.images[0];
-    const image = scenic(file, false);
+    const image = file ? scenic(file, false) : make('div', poi.category || '地图点位', 'street-category');
     const copy = make('div', null, 'poi-copy');
     copy.append(make('p', `${poi.region} · ${poi.county}`, 'eyebrow'), make('h2', poi.name),
       make('p', poi.description));
     const actions = make('div', null, 'actions');
-    actions.append(button('用它规划 →', () => {
+    actions.append(button(poi.street_id ? '加入行程 →' : '用它规划 →', () => {
       if ($('poi-dialog').open) $('poi-dialog').close();
       plan(poi);
     }, 'primary'), booking(poi.booking));
+    if (!poi.parent_id && !poi.street_id) {
+      actions.append(button('浏览'+poi.region+'地图', () => {
+        if ($('poi-dialog').open) $('poi-dialog').close();
+        openRegion(poi.poi_id);
+        $('discover').scrollIntoView({block:'start'});
+      }));
+    }
+    if (poi.street_id) {
+      const copyAddress = button('复制名称与地址', async () => {
+        try {
+          await navigator.clipboard.writeText(poi.name + '　' + poi.address);
+          copyAddress.textContent = '已复制';
+        } catch { copyAddress.textContent = poi.address; }
+      });
+      actions.append(copyAddress);
+    }
     copy.append(actions);
     const children = [...catalog.values()].filter(row => row.parent_id === poi.poi_id);
     if (children.length) {
@@ -143,7 +161,7 @@ export function onlineMap(catalog, select, config) {
         showOnline(true);
         toggle.disabled = false;
       });
-      const regions = [...catalog.values()].filter(poi => !poi.parent_id);
+      const regions = [...catalog.values()].filter(poi => !poi.parent_id && !poi.street_id);
       const points = regions.map(poi => [poi.coordinates.longitude, poi.coordinates.latitude]);
       window.AMap.convertFrom(points, 'gps', (status, result) => {
         if (map !== instance || status !== 'complete' || !result.locations?.length) return;

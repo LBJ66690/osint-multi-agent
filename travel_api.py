@@ -10,6 +10,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+from travel_departures import TravelMode, KINDS, directory, search
+from travel_profile import Region, Gender
 import travel_store
 from travel_tools import CHINA, catalog
 import web_auth
@@ -26,6 +28,11 @@ class Profile(BaseModel):
     walking_preference: str | None = Field(None,max_length=100)
 
 
+@router.get("/departures")
+def departures(mode: TravelMode, q: str = ""):
+    return search(mode,q)
+
+
 class Ticket(BaseModel):
     date: Date | None = None
     arrival_time: str | None = Field(None,pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
@@ -36,6 +43,9 @@ class Ticket(BaseModel):
 
 
 class Trip(Profile):
+    travel_mode: TravelMode | None = None
+    departure_id: str | None = Field(None,max_length=40)
+    travelers: int | None = Field(None,strict=True,ge=1,le=10)
     rooms: int | None = Field(None,ge=1,le=99)
     poi_ids: list[str] = Field(default_factory=list,max_length=20)
     start_date: Date | None = None
@@ -47,6 +57,14 @@ class Trip(Profile):
 
     @model_validator(mode="after")
     def check_dates(self):
+        if self.travel_mode is not None or self.departure_id is not None:
+            row = directory()[1].get(self.departure_id)
+            if not row or row["kind"] != KINDS.get(self.travel_mode):
+                raise ValueError("请从当前出行方式的目录选择出发地")
+            self.origin = row["name"]
+            if self.budget_scope not in (None, "group"):
+                raise ValueError("新行程预算须按全团计算")
+            self.budget_scope = "group"
         if self.start_date and self.end_date and not 0 <= (self.end_date-self.start_date).days < 31:
             raise ValueError("行程日期范围无效")
         return self
@@ -79,8 +97,15 @@ async def profile(request:Request):
     return await asyncio.to_thread(travel_store.account_data,*owner(request),"profile")
 
 
+class EditableProfile(Profile):
+    age: int | None = Field(None,strict=True,ge=1,le=120)
+    gender: Gender | None = None
+    intended_region: Region | None = None
+    interests: str | None = Field(None,max_length=120)
+
+
 @router.patch("/profile")
-async def patch_profile(body:Profile,request:Request):
+async def patch_profile(body:EditableProfile,request:Request):
     return await asyncio.to_thread(travel_store.account_data,*owner(request),"profile",body.model_dump(exclude_unset=True))
 
 
@@ -88,7 +113,7 @@ async def patch_profile(body:Profile,request:Request):
 async def preview(body:Draft,request:Request):
     defaults={}
     if web_auth.store_for(request):
-        defaults=await profile(request)
+        defaults={key:value for key,value in (await profile(request)).items() if key in Profile.model_fields}
     fields=body.overrides.model_dump(exclude_unset=True)
     if not fields.get("poi_ids"):
         cards=catalog()

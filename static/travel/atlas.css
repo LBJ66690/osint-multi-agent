@@ -205,3 +205,25 @@
   .pin { width: 1.4rem; height: 1.4rem; }
   .pin::after { width: .43rem; height: .43rem; }
 }
+
+.map-atlas[hidden], .district-view[hidden]{display:none}
+button.region-name{padding:2px 3px;pointer-events:auto;border:0;background:transparent;color:#24453d;min-width:0;border-radius:3px}
+.district-view{display:grid;gap:.7rem}.district-view>button{justify-self:start}.district-view>a{font-size:.78rem}
+.street-map{position:relative;height:clamp(210px,28vw,360px);overflow:hidden;border:1px solid #c9daca;border-radius:12px;background:#f3f3e8}
+.street-map canvas,.street-markers{position:absolute;inset:0;width:100%;height:100%}.street-markers{pointer-events:none}
+.street-pin{position:absolute;transform:translate(-50%,-50%);display:grid;place-content:center;border:2px solid white;border-radius:50%;min-width:26px;height:26px;padding:0;color:white;background:#225b45;box-shadow:0 1px 4px #36523d77;pointer-events:auto;font-size:12px}
+.street-places{display:flex;flex-wrap:wrap;gap:.35rem}.street-places button{font-size:.86rem}
+.street-illustration img{display:block;width:100%;max-height:620px;object-fit:contain}.street-illustration summary{cursor:pointer}.district-view .region-photo img{max-height:190px;width:100%;object-fit:cover}.street-category{border-radius:12px;background:#ecf4e8;color:#365b43;padding:1rem}
+@media(min-width:1050px){
+ html:not(.journal-mode) main.wrap{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);grid-auto-flow:row dense;max-width:1660px;gap:1rem;align-items:start}
+ html:not(.journal-mode) main.wrap>:not(#discover):not(.grid){grid-column:1/-1}
+ html:not(.journal-mode) main.wrap>.grid, html:not(.journal-mode) main.wrap>.grid>.left, html:not(.journal-mode) main.wrap>.grid>.right{display:contents}
+ #discover{grid-column:1}#poi-card{grid-column:2;margin:0}#planner{grid-column:1}#guide{grid-column:2}.grid #guide{grid-row:auto;order:0}
+}
+
+.street-viewport{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain}.street-surface{position:relative;width:100%;height:100%}.street-zoom{position:absolute;right:6px;top:6px;display:flex;gap:3px}.street-zoom button{font-size:.72rem;padding:.2rem .4rem;background:#fff}
+@media(max-width:760px){
+ html:not(.journal-mode) main.wrap>.grid{display:flex;flex-direction:column;align-items:stretch}
+ html:not(.journal-mode) main.wrap>.grid>.left,html:not(.journal-mode) main.wrap>.grid>.right{display:contents}
+ .grid #poi-card{order:1}.grid #planner{order:2}.grid #guide{order:3}
+}
